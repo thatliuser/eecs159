@@ -8,10 +8,14 @@ constexpr const char CHARACTERISTIC_UUID[] =
 
 constexpr int BUILTIN_LED = 2;
 
+portMUX_TYPE blinkMtx = portMUX_INITIALIZER_UNLOCKED;
 bool blink = true;
+bool ledOn = false;
 bool paired = false;
 bool wasPaired = false;
 
+hw_timer_t *timer = nullptr;
+;
 BLEServer *server = nullptr;
 
 class ServerNotifs : public BLEServerCallbacks {
@@ -24,6 +28,7 @@ class BlinkUpdate : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *c) {
     auto bytes = c->getValue();
     if (bytes.length() == 1) {
+      portENTER_CRITICAL(&blinkMtx);
       bool newBlink = static_cast<bool>(bytes[0]);
       if (newBlink != blink) {
         Serial.println("Toggling blink");
@@ -31,16 +36,40 @@ class BlinkUpdate : public BLECharacteristicCallbacks {
         Serial.println("Blink set to the same value as before");
       }
       blink = newBlink;
+      portEXIT_CRITICAL(&blinkMtx);
     } else {
       Serial.println("Couldn't parse written value, ignored");
     }
   }
+  void onRead(BLECharacteristic *c) {
+    portENTER_CRITICAL(&blinkMtx);
+    uint8_t value = blink;
+    c->setValue(&value, 1);
+    portEXIT_CRITICAL(&blinkMtx);
+  }
 };
+
+void ARDUINO_ISR_ATTR tick() {
+  portENTER_CRITICAL_ISR(&blinkMtx);
+  if (blink) {
+    digitalWrite(BUILTIN_LED, ledOn ? HIGH : LOW);
+    ledOn = !ledOn;
+  }
+  portEXIT_CRITICAL_ISR(&blinkMtx);
+}
 
 void setup() {
   // Configure serial and builtin LED
   Serial.begin(115200);
   pinMode(BUILTIN_LED, OUTPUT);
+
+  // Configure blink timer
+  timer = timerBegin(1000000);
+  if (timer == nullptr) {
+    Serial.println("Couldn't configure timer!!");
+  }
+  timerAttachInterrupt(timer, &tick);
+  timerAlarm(timer, 1000000, true, 0);
 
   // Configure bluetooth
   BLEDevice::init("ZotPen");
@@ -69,14 +98,7 @@ void setup() {
 }
 
 void loop() {
-  if (blink) {
-    digitalWrite(BUILTIN_LED, HIGH);
-    delay(500);
-    digitalWrite(BUILTIN_LED, LOW);
-    delay(500);
-  } else {
-    delay(100);
-  }
+  delay(100);
   // Connecting to device
   if (paired && !wasPaired) {
     wasPaired = true;
