@@ -4,6 +4,7 @@
 #include <Adafruit_ICM20X.h>
 #include <Adafruit_ICM20948.h>
 #include <Adafruit_Sensor.h>
+#include <string.h>
 
 constexpr const char SERVICE_UUID[] = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
 constexpr const char BLINK_UUID[] =
@@ -122,6 +123,14 @@ void setup() {
   adv->start();
 }
 
+void setSensorValue(BLECharacteristic* chr, sensors_vec_t& vec) {
+  uint8_t arr[sizeof(float) * 3];
+  memcpy(arr + sizeof(float) * 0, &vec.x, sizeof(float));
+  memcpy(arr + sizeof(float) * 1, &vec.y, sizeof(float));
+  memcpy(arr + sizeof(float) * 2, &vec.z, sizeof(float));
+  chr->setValue(arr, sizeof(arr));
+}
+
 void loop() {
   delay(100);
 
@@ -130,9 +139,9 @@ void loop() {
   sensors_event_t gyro;
   sensors_event_t temp;
   sensor.getEvent(&accel, &gyro, &temp);
-  getAccel->setValue(String(accel.acceleration.x) + "," + String(accel.acceleration.y) + "," + String(accel.acceleration.z));
+  setSensorValue(getAccel, accel.acceleration);
   getAccel->notify();
-  getGyro->setValue(String(gyro.gyro.x) + "," + String(gyro.gyro.y) + "," + String(gyro.gyro.z));
+  setSensorValue(getGyro, gyro.gyro);
   getGyro->notify();
 
   // Connecting to device
