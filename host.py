@@ -3,8 +3,8 @@ from bleak import BleakScanner, BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
 
 SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
-ACCEL_UUID = "acce1e70-1111-7688-b7f5-ea07361b26a8";
-GYRO_UUID = "5c093333-e6e1-4688-b7f5-ea07361b26a8";
+ACCEL_UUID = "acce1e70-1111-7688-b7f5-ea07361b26a8"
+GYRO_UUID = "5c093333-e6e1-4688-b7f5-ea07361b26a8"
 
 def printer(char: BleakGATTCharacteristic, data: bytearray):
     print(f'{char}: {data}')
