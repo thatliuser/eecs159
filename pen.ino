@@ -1,10 +1,17 @@
 #include <BLEDevice.h>
 #include <BLEService.h>
 #include <BLEUtils.h>
+#include <Adafruit_ICM20X.h>
+#include <Adafruit_ICM20948.h>
+#include <Adafruit_Sensor.h>
 
 constexpr const char SERVICE_UUID[] = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
-constexpr const char CHARACTERISTIC_UUID[] =
-    "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+constexpr const char BLINK_UUID[] =
+    "11111111-36e1-4688-b7f5-ea07361b26a8";
+constexpr const char ACCEL_UUID[] =
+    "acce1e70-1111-r688-b7f5-ea07361b26a8";
+constexpr const char GYRO_UUID[] =
+    "5c093333-e6e1-4688-b7f5-ea07361b26a8";
 
 constexpr int BUILTIN_LED = 2;
 
@@ -15,8 +22,8 @@ bool paired = false;
 bool wasPaired = false;
 
 hw_timer_t *timer = nullptr;
-;
 BLEServer *server = nullptr;
+Adafruit_ICM20948 sensor;
 
 class ServerNotifs : public BLEServerCallbacks {
   void onConnect(BLEServer *) { paired = true; };
@@ -58,10 +65,20 @@ void ARDUINO_ISR_ATTR tick() {
   portEXIT_CRITICAL_ISR(&blinkMtx);
 }
 
+BLECharacteristic* getAccel;
+BLECharacteristic* getGyro;
+
 void setup() {
   // Configure serial and builtin LED
   Serial.begin(115200);
   pinMode(BUILTIN_LED, OUTPUT);
+
+  if (!sensor.begin_I2C()) {
+    while (true) {
+      Serial.println("Failed to initialize ICM sensor!");
+      delay(2000);
+    }
+  }
 
   // Configure blink timer
   timer = timerBegin(1000000);
@@ -80,11 +97,19 @@ void setup() {
   auto *service = server->createService(SERVICE_UUID);
   // Configure blink characteristic
   auto *setBlink = service->createCharacteristic(
-      CHARACTERISTIC_UUID,
+      BLINK_UUID,
       BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
+  getAccel = service->createCharacteristic(
+      ACCEL_UUID,
+      BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
+  getGyro = service->createCharacteristic(
+      GYRO_UUID,
+      BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
 
   setBlink->setValue("\0");
   setBlink->setCallbacks(new BlinkUpdate());
+  getAccel->setValue("\0");
+  getGyro->setValue("\0");
 
   service->start();
 
@@ -99,6 +124,17 @@ void setup() {
 
 void loop() {
   delay(100);
+
+  // Read sensors
+  sensors_event_t accel;
+  sensors_event_t gyro;
+  sensors_event_t temp;
+  sensor.getEvent(&accel, &gyro, &temp);
+  getAccel->setValue(String(accel.acceleration.x) + "," + String(accel.acceleration.y) + "," + String(accel.acceleration.z));
+  getAccel->notify();
+  getGyro->setValue(String(gyro.gyro.x) + "," + String(gyro.gyro.y) + "," + String(gyro.gyro.z));
+  getGyro->notify();
+
   // Connecting to device
   if (paired && !wasPaired) {
     wasPaired = true;
