@@ -9,7 +9,7 @@ constexpr const char SERVICE_UUID[] = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
 constexpr const char BLINK_UUID[] =
     "11111111-36e1-4688-b7f5-ea07361b26a8";
 constexpr const char ACCEL_UUID[] =
-    "acce1e70-1111-r688-b7f5-ea07361b26a8";
+    "acce1e70-1111-7688-b7f5-ea07361b26a8";
 constexpr const char GYRO_UUID[] =
     "5c093333-e6e1-4688-b7f5-ea07361b26a8";
 

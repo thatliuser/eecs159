@@ -16,8 +16,9 @@
           pname = "pen";
           version = "0.0.1";
           nativeBuildInputs = with pkgs; [
-            (python3.withPackages (py: [
-              py.pyserial
+            (python3.withPackages (py: with py; [
+              pyserial
+              bleak
             ]))
             arduino-cli
             tio
