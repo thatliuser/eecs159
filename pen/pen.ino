@@ -1,9 +1,7 @@
 #include <BLEDevice.h>
 #include <BLEService.h>
 #include <BLEUtils.h>
-#include <Adafruit_ICM20X.h>
-#include <Adafruit_ICM20948.h>
-#include <Adafruit_Sensor.h>
+#include <ICM_20948.h>
 #include <string.h>
 
 constexpr const char SERVICE_UUID[] = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
@@ -13,6 +11,8 @@ constexpr const char ACCEL_UUID[] =
     "acce1e70-1111-7688-b7f5-ea07361b26a8";
 constexpr const char GYRO_UUID[] =
     "5c093333-e6e1-4688-b7f5-ea07361b26a8";
+constexpr const char MAGNET_UUID[] =
+    "aaaaaaaa-aaaa-4688-b7f5-ea07361b26a8";
 
 constexpr int BUILTIN_LED = 2;
 
@@ -24,7 +24,6 @@ bool wasPaired = false;
 
 hw_timer_t *timer = nullptr;
 BLEServer *server = nullptr;
-Adafruit_ICM20948 sensor;
 
 class ServerNotifs : public BLEServerCallbacks {
   void onConnect(BLEServer *) { paired = true; };
@@ -68,13 +67,21 @@ void ARDUINO_ISR_ATTR tick() {
 
 BLECharacteristic* getAccel;
 BLECharacteristic* getGyro;
+BLECharacteristic* getMagnet;
+ICM_20948_I2C sensor;
 
 void setup() {
   // Configure serial and builtin LED
   Serial.begin(115200);
   pinMode(BUILTIN_LED, OUTPUT);
 
-  if (!sensor.begin_I2C()) {
+  Wire.begin();
+  // I2C fast mode
+  Wire.setClock(400000);
+
+  // ad0 is set to 1 to set the I2C address to 0x69 (compatible with Adafruit board)
+  sensor.begin(Wire, 1);
+  if (sensor.status != ICM_20948_Stat_Ok) {
     while (true) {
       Serial.println("Failed to initialize ICM sensor!");
       delay(2000);
@@ -106,11 +113,15 @@ void setup() {
   getGyro = service->createCharacteristic(
       GYRO_UUID,
       BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
+  getMagnet = service->createCharacteristic(
+      MAGNET_UUID,
+      BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
 
   setBlink->setValue("\0");
   setBlink->setCallbacks(new BlinkUpdate());
   getAccel->setValue("\0");
   getGyro->setValue("\0");
+  getMagnet->setValue("\0");
 
   service->start();
 
@@ -123,26 +134,28 @@ void setup() {
   adv->start();
 }
 
-void setSensorValue(BLECharacteristic* chr, sensors_vec_t& vec) {
+void setSensorValue(BLECharacteristic* chr, float x, float y, float z) {
   uint8_t arr[sizeof(float) * 3];
-  memcpy(arr + sizeof(float) * 0, &vec.x, sizeof(float));
-  memcpy(arr + sizeof(float) * 1, &vec.y, sizeof(float));
-  memcpy(arr + sizeof(float) * 2, &vec.z, sizeof(float));
+  memcpy(arr + sizeof(float) * 0, &x, sizeof(float));
+  memcpy(arr + sizeof(float) * 1, &y, sizeof(float));
+  memcpy(arr + sizeof(float) * 2, &z, sizeof(float));
   chr->setValue(arr, sizeof(arr));
 }
 
 void loop() {
   delay(100);
 
-  // Read sensors
-  sensors_event_t accel;
-  sensors_event_t gyro;
-  sensors_event_t temp;
-  sensor.getEvent(&accel, &gyro, &temp);
-  setSensorValue(getAccel, accel.acceleration);
-  getAccel->notify();
-  setSensorValue(getGyro, gyro.gyro);
-  getGyro->notify();
+  if (sensor.dataReady()) {
+    // Read sensors
+    sensor.getAGMT();
+    // Update bluetooth characteristics
+    setSensorValue(getAccel, sensor.accX(), sensor.accY(), sensor.accZ());
+    getAccel->notify();
+    setSensorValue(getGyro, sensor.gyrX(), sensor.gyrY(), sensor.gyrZ());
+    getGyro->notify();
+    setSensorValue(getMagnet, sensor.magX(), sensor.magY(), sensor.magZ());
+    getMagnet->notify();
+  }
 
   // Connecting to device
   if (paired && !wasPaired) {
