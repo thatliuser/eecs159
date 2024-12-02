@@ -5,18 +5,14 @@ from struct import unpack
 from typing import Callable
 
 SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
-ACCEL_UUID = "acce1e70-1111-7688-b7f5-ea07361b26a8"
-GYRO_UUID = "5c093333-e6e1-4688-b7f5-ea07361b26a8"
+IMU_UUID = "22222222-1111-7688-b7f5-ea07361b26a8"
 
-def make_printer(name: str) -> Callable[[BleakGATTCharacteristic, bytearray], None]:
-    def printer(chr: BleakGATTCharacteristic, data: bytearray):
-        if not len(data) == 12:
-            print('Failed to deserialize data')
-            return
-        x, y, z = unpack('fff', data)
-        print(f'\r{name}: ({x:>20}, {y:>20}, {z:>20})', end='')
-
-    return printer
+def on_notify(chr: BleakGATTCharacteristic, data: bytearray):
+    try:
+        accx, accy, accz, gyrx, gyry, gyrz, magx, magy, magz, micros = unpack('=fffffffffQ', data)
+        print(f'\033[2J\raccel: ({accx:>25}, {accy:>25}, {accz:>25})\ngyro: ({gyrx:>25}, {gyry:>25}, {gyrz:>25})\nmagnet: ({magx:>25}, {magy:>25}, {magz:>25})\ndelay: {micros:>25} us', end='')
+    except Exception as ex:
+        print(f'Failed to unpack data: {ex}')
 
 async def main():
     devices = await BleakScanner.discover(
@@ -27,9 +23,9 @@ async def main():
 
     async with BleakClient(device) as client:
         # await client.start_notify(ACCEL_UUID, make_printer('accel'))
-        await client.start_notify(GYRO_UUID, make_printer('gyro'))
+        await client.start_notify(IMU_UUID, on_notify)
         await asyncio.sleep(30)
         # await client.stop_notify(ACCEL_UUID)
-        await client.stop_notify(GYRO_UUID)
+        await client.stop_notify(IMU_UUID)
 
 asyncio.run(main())

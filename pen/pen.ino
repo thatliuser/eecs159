@@ -8,29 +8,20 @@
 constexpr const char SERVICE_UUID[] = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
 constexpr const char BLINK_UUID[] =
     "11111111-36e1-4688-b7f5-ea07361b26a8";
-constexpr const char ACCEL_UUID[] =
-    "acce1e70-1111-7688-b7f5-ea07361b26a8";
-constexpr const char GYRO_UUID[] =
-    "5c093333-e6e1-4688-b7f5-ea07361b26a8";
-constexpr const char MAGNET_UUID[] =
-    "aaaaaaaa-aaaa-4688-b7f5-ea07361b26a8";
+constexpr const char IMU_UUID[] =
+    "22222222-1111-7688-b7f5-ea07361b26a8";
 
 constexpr int BUILTIN_LED = 2;
-constexpr int IMU_INT = 5;
 
 portMUX_TYPE blinkMtx = portMUX_INITIALIZER_UNLOCKED;
-portMUX_TYPE notifyMtx = portMUX_INITIALIZER_UNLOCKED;
 volatile bool blink = true;
 bool ledOn = false;
 bool paired = false;
 bool wasPaired = false;
-volatile bool needNotify = false;
 
 hw_timer_t *timer = nullptr;
 BLEServer *server = nullptr;
-BLECharacteristic* getAccel;
-BLECharacteristic* getGyro;
-BLECharacteristic* getMagnet;
+BLECharacteristic* getIMU;
 ICM_20948_I2C sensor;
 uint64_t last_read_us = 0;
 
@@ -65,16 +56,33 @@ class BlinkUpdate : public BLECharacteristicCallbacks {
   }
 };
 
-void setSensorValue(BLECharacteristic* chr, float x, float y, float z) {
+void notify() {
+  sensor.getAGMT();
   uint64_t now = static_cast<uint64_t>(esp_timer_get_time());
   uint64_t delta = now - last_read_us;
+  uint8_t buf[sizeof(float) * 9 + sizeof(uint64_t)];
+  float accX = sensor.accX();
+  float accY = sensor.accY();
+  float accZ = sensor.accZ();
+  float gyrX = sensor.gyrX();
+  float gyrY = sensor.gyrY();
+  float gyrZ = sensor.gyrZ();
+  float magX = sensor.magX();
+  float magY = sensor.magY();
+  float magZ = sensor.magZ();
+  memcpy(buf + sizeof(float) * 0, &accX, sizeof(float));
+  memcpy(buf + sizeof(float) * 1, &accY, sizeof(float));
+  memcpy(buf + sizeof(float) * 2, &accZ, sizeof(float));
+  memcpy(buf + sizeof(float) * 3, &gyrX, sizeof(float));
+  memcpy(buf + sizeof(float) * 4, &gyrY, sizeof(float));
+  memcpy(buf + sizeof(float) * 5, &gyrZ, sizeof(float));
+  memcpy(buf + sizeof(float) * 6, &magX, sizeof(float));
+  memcpy(buf + sizeof(float) * 7, &magY, sizeof(float));
+  memcpy(buf + sizeof(float) * 8, &magZ, sizeof(float));
+  memcpy(buf + sizeof(float) * 9, &delta, sizeof(uint64_t));
+  getIMU->setValue(buf, sizeof(buf));
+  getIMU->notify();
   last_read_us = now;
-  uint8_t arr[sizeof(float) * 3 + sizeof(uint64_t)];
-  memcpy(arr + sizeof(float) * 0, &x, sizeof(float));
-  memcpy(arr + sizeof(float) * 1, &y, sizeof(float));
-  memcpy(arr + sizeof(float) * 2, &z, sizeof(float));
-  memcpy(arr + sizeof(float) * 3, &delta, sizeof(uint64_t));
-  chr->setValue(arr, sizeof(arr));
 }
 
 void ARDUINO_ISR_ATTR tick() {
@@ -86,25 +94,10 @@ void ARDUINO_ISR_ATTR tick() {
   portEXIT_CRITICAL_ISR(&blinkMtx);
 }
 
-void ARDUINO_ISR_ATTR imu_data_ready() {
-  Serial.println("I don't know if this works in an ISR but hi");
-  sensor.getAGMT();
-  setSensorValue(getAccel, sensor.accX(), sensor.accY(), sensor.accZ());
-  setSensorValue(getGyro, sensor.gyrX(), sensor.gyrY(), sensor.gyrZ());
-  setSensorValue(getMagnet, sensor.magX(), sensor.magY(), sensor.magZ());
-  sensor.clearInterrupts();
-  portENTER_CRITICAL_ISR(&notifyMtx);
-  needNotify = true;
-  portEXIT_CRITICAL_ISR(&notifyMtx);
-}
-
 void setup() {
   // Configure serial and builtin LED
   Serial.begin(115200);
   pinMode(BUILTIN_LED, OUTPUT);
-  // Attach ISR
-  pinMode(IMU_INT, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(IMU_INT), imu_data_ready, FALLING);
 
   Wire.begin();
   // I2C fast mode
@@ -112,46 +105,6 @@ void setup() {
 
   // ad0 is set to 1 to set the I2C address to 0x69 (compatible with Adafruit board)
   sensor.begin(Wire, 1);
-  sensor.swReset();
-  if (sensor.status != ICM_20948_Stat_Ok) {
-    while (true) {
-      Serial.println("Failed to initialize ICM sensor!");
-      delay(2000);
-    }
-  }
-
-  sensor.sleep(false);
-  sensor.lowPower(false);
-  // TODO: I have no idea what cycled means tbh check datasheet
-  sensor.setSampleMode((ICM_20948_Internal_Acc | ICM_20948_Internal_Gyr), ICM_20948_Sample_Mode_Cycled);
-  // Config ranges of each sensor
-  ICM_20948_smplrt_t sampleRate;
-  sampleRate.g = 54;
-  sensor.setSampleRate(ICM_20948_Internal_Gyr, sampleRate);
-  // Set full scale ranges for both acc and gyr
-  ICM_20948_fss_t scale; // This uses a "Full Scale Settings" structure that can contain values for all configurable sensors
-
-  scale.a = gpm2; // (ICM_20948_ACCEL_CONFIG_FS_SEL_e)
-                  // gpm2
-                  // gpm4
-                  // gpm8
-                  // gpm16
-
-  scale.g = dps250; // (ICM_20948_GYRO_CONFIG_1_FS_SEL_e)
-                    // dps250
-                    // dps500
-                    // dps1000
-                    // dps2000
-
-  sensor.setFullScale((ICM_20948_Internal_Acc | ICM_20948_Internal_Gyr), scale);
-
-  // Interrupt config
-  sensor.cfgIntActiveLow(true);
-  sensor.cfgIntOpenDrain(false);
-  // Interrupt doesn't go away after even is gone - needs to be cleared by MCU
-  sensor.cfgIntLatch(true);
-  // Pull interrupt pin low when new sensor data is ready
-  sensor.intEnableRawDataReady(true);
 
   // Configure blink timer
   timer = timerBegin(1000000);
@@ -172,21 +125,13 @@ void setup() {
   auto *setBlink = service->createCharacteristic(
       BLINK_UUID,
       BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
-  getAccel = service->createCharacteristic(
-      ACCEL_UUID,
-      BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
-  getGyro = service->createCharacteristic(
-      GYRO_UUID,
-      BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
-  getMagnet = service->createCharacteristic(
-      MAGNET_UUID,
+  getIMU = service->createCharacteristic(
+      IMU_UUID,
       BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
 
   setBlink->setValue("\0");
   setBlink->setCallbacks(new BlinkUpdate());
-  getAccel->setValue("\0");
-  getGyro->setValue("\0");
-  getMagnet->setValue("\0");
+  getIMU->setValue("\0");
 
   service->start();
 
@@ -200,20 +145,13 @@ void setup() {
 }
 
 void loop() {
-  delay(5);
-  portENTER_CRITICAL(&notifyMtx);
-  if (needNotify) {
-    // Characteristics were already set in the ISR, just notify
-    getAccel->notify();
-    getGyro->notify();
-    getMagnet->notify();
-    needNotify = false;
+  delay(50);
+  if (sensor.dataReady()) {
+    notify();
   }
-  portEXIT_CRITICAL(&notifyMtx);
 
   // Connecting to device
   if (paired && !wasPaired) {
-    delay(100);
     wasPaired = true;
   }
   // Disconnecting to device
