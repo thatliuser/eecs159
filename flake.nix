@@ -22,6 +22,7 @@
               matplotlib
               numpy
               pandas
+              filterpy
             ]))
             arduino-cli
             tio
