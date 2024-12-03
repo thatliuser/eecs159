@@ -28,7 +28,7 @@ async def main():
         async with BleakClient(device) as client:
             # await client.start_notify(ACCEL_UUID, make_printer('accel'))
             await client.start_notify(IMU_UUID, on_notify)
-            await asyncio.sleep(30)
+            await asyncio.sleep(35)
             # await client.stop_notify(ACCEL_UUID)
             await client.stop_notify(IMU_UUID)
 

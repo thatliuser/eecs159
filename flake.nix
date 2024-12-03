@@ -19,6 +19,9 @@
             (python3.withPackages (py: with py; [
               pyserial
               bleak
+              matplotlib
+              numpy
+              pandas
             ]))
             arduino-cli
             tio
