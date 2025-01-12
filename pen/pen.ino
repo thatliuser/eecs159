@@ -22,7 +22,8 @@ bool wasPaired = false;
 hw_timer_t *timer = nullptr;
 BLEServer *server = nullptr;
 BLECharacteristic* getIMU;
-ICM_20948_I2C sensor;
+ICM_20948_I2C sensor1;
+ICM_20948_I2C sensor2;
 uint64_t last_read_us = 0;
 
 class ServerNotifs : public BLEServerCallbacks {
@@ -57,29 +58,48 @@ class BlinkUpdate : public BLECharacteristicCallbacks {
 };
 
 void notify() {
-  sensor.getAGMT();
+  sensor1.getAGMT();
+  sensor2.getAGMT();
   uint64_t now = static_cast<uint64_t>(esp_timer_get_time());
   uint64_t delta = now - last_read_us;
-  uint8_t buf[sizeof(float) * 9 + sizeof(uint64_t)];
-  float accX = sensor.accX();
-  float accY = sensor.accY();
-  float accZ = sensor.accZ();
-  float gyrX = sensor.gyrX();
-  float gyrY = sensor.gyrY();
-  float gyrZ = sensor.gyrZ();
-  float magX = sensor.magX();
-  float magY = sensor.magY();
-  float magZ = sensor.magZ();
-  memcpy(buf + sizeof(float) * 0, &accX, sizeof(float));
-  memcpy(buf + sizeof(float) * 1, &accY, sizeof(float));
-  memcpy(buf + sizeof(float) * 2, &accZ, sizeof(float));
-  memcpy(buf + sizeof(float) * 3, &gyrX, sizeof(float));
-  memcpy(buf + sizeof(float) * 4, &gyrY, sizeof(float));
-  memcpy(buf + sizeof(float) * 5, &gyrZ, sizeof(float));
-  memcpy(buf + sizeof(float) * 6, &magX, sizeof(float));
-  memcpy(buf + sizeof(float) * 7, &magY, sizeof(float));
-  memcpy(buf + sizeof(float) * 8, &magZ, sizeof(float));
-  memcpy(buf + sizeof(float) * 9, &delta, sizeof(uint64_t));
+  uint8_t buf[sizeof(float) * 18 + sizeof(uint64_t)];
+  float accX1 = sensor1.accX();
+  float accY1 = sensor1.accY();
+  float accZ1 = sensor1.accZ();
+  float gyrX1 = sensor1.gyrX();
+  float gyrY1 = sensor1.gyrY();
+  float gyrZ1 = sensor1.gyrZ();
+  float magX1 = sensor1.magX();
+  float magY1 = sensor1.magY();
+  float magZ1 = sensor1.magZ();
+  float accX2 = sensor2.accX();
+  float accY2 = sensor2.accY();
+  float accZ2 = sensor2.accZ();
+  float gyrX2 = sensor2.gyrX();
+  float gyrY2 = sensor2.gyrY();
+  float gyrZ2 = sensor2.gyrZ();
+  float magX2 = sensor2.magX();
+  float magY2 = sensor2.magY();
+  float magZ2 = sensor2.magZ();
+  memcpy(buf + sizeof(float) * 0,  &accX1, sizeof(float));
+  memcpy(buf + sizeof(float) * 1,  &accY1, sizeof(float));
+  memcpy(buf + sizeof(float) * 2,  &accZ1, sizeof(float));
+  memcpy(buf + sizeof(float) * 3,  &gyrX1, sizeof(float));
+  memcpy(buf + sizeof(float) * 4,  &gyrY1, sizeof(float));
+  memcpy(buf + sizeof(float) * 5,  &gyrZ1, sizeof(float));
+  memcpy(buf + sizeof(float) * 6,  &magX1, sizeof(float));
+  memcpy(buf + sizeof(float) * 7,  &magY1, sizeof(float));
+  memcpy(buf + sizeof(float) * 8,  &magZ1, sizeof(float));
+  memcpy(buf + sizeof(float) * 9,  &accX2, sizeof(float));
+  memcpy(buf + sizeof(float) * 10, &accY2, sizeof(float));
+  memcpy(buf + sizeof(float) * 11, &accZ2, sizeof(float));
+  memcpy(buf + sizeof(float) * 12, &gyrX2, sizeof(float));
+  memcpy(buf + sizeof(float) * 13, &gyrY2, sizeof(float));
+  memcpy(buf + sizeof(float) * 14, &gyrZ2, sizeof(float));
+  memcpy(buf + sizeof(float) * 15, &magX2, sizeof(float));
+  memcpy(buf + sizeof(float) * 16, &magY2, sizeof(float));
+  memcpy(buf + sizeof(float) * 17, &magZ2, sizeof(float));
+  memcpy(buf + sizeof(float) * 18, &delta, sizeof(uint64_t));
   getIMU->setValue(buf, sizeof(buf));
   getIMU->notify();
   last_read_us = now;
@@ -104,7 +124,23 @@ void setup() {
   Wire.setClock(400000);
 
   // ad0 is set to 1 to set the I2C address to 0x69 (compatible with Adafruit board)
-  sensor.begin(Wire, 1);
+  auto status = sensor1.begin(Wire, 1);
+  if (status != ICM_20948_Stat_Ok) {
+    while (true) {
+      Serial.print("Couldn't configure sensor #1: ");
+      Serial.println(status);
+      delay(1000);
+    }
+  }
+  // ad0 is set to 0 to set the I2C address to 0x68 (second sensor has different addr)
+  status = sensor2.begin(Wire, 0);
+  if (status != ICM_20948_Stat_Ok) {
+    while (true) {
+      Serial.print("Couldn't configure sensor #2: ");
+      Serial.println(status);
+      delay(1000);
+    }
+  }
 
   // Configure blink timer
   timer = timerBegin(1000000);
@@ -146,7 +182,7 @@ void setup() {
 
 void loop() {
   delay(50);
-  if (sensor.dataReady()) {
+  if (sensor1.dataReady() && sensor2.dataReady()) {
     notify();
   }
 

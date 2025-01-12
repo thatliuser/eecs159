@@ -15,13 +15,19 @@ async def main():
     print(f'Found Device {device}')
 
     with open('points.csv', 'w+') as f:
-        f.write('accx,accy,accz,gyrx,gyry,gyrz,magx,magy,magz,delay\n')
+        f.write('accx1,accy1,accz1,gyrx1,gyry1,gyrz1,magx1,magy1,magz1,accx2,accy2,accz2,gyrx2,gyry2,gyrz2,magx2,magy2,magz2,delay\n')
     
         def on_notify(chr: BleakGATTCharacteristic, data: bytearray):
             try:
-                accx, accy, accz, gyrx, gyry, gyrz, magx, magy, magz, micros = unpack('=fffffffffQ', data)
-                print(f'\033[2J\raccel: ({accx:>25}, {accy:>25}, {accz:>25})\ngyro: ({gyrx:>25}, {gyry:>25}, {gyrz:>25})\nmagnet: ({magx:>25}, {magy:>25}, {magz:>25})\ndelay: {micros:>25} us', end='')
-                f.write(f'{accx},{accy},{accz},{gyrx},{gyry},{gyrz},{magx},{magy},{magz},{micros}\n')
+                accx1, accy1, accz1, gyrx1, gyry1, gyrz1, magx1, magy1, magz1, \
+                accx2, accy2, accz2, gyrx2, gyry2, gyrz2, magx2, magy2, magz2, micros = unpack('=ffffffffffffffffffQ', data)
+                print(f'\033[2J\r', end='')
+                print(f'--- sensor 1 ---\n', end='')
+                print(f'accel: ({accx1:>25}, {accy1:>25}, {accz1:>25})\ngyro: ({gyrx1:>25}, {gyry1:>25}, {gyrz1:>25})\nmagnet: ({magx1:>25}, {magy1:>25}, {magz1:>25})\n', end='')
+                print(f'--- sensor 2 ---\n', end='')
+                print(f'accel: ({accx2:>25}, {accy2:>25}, {accz2:>25})\ngyro: ({gyrx2:>25}, {gyry2:>25}, {gyrz2:>25})\nmagnet: ({magx2:>25}, {magy2:>25}, {magz2:>25})\n', end='')
+                print(f'delay: {micros:>25} us', end='')
+                f.write(f'{accx1},{accy1},{accz1},{gyrx1},{gyry1},{gyrz1},{magx1},{magy1},{magz1},{accx2},{accy2},{accz2},{gyrx2},{gyry2},{gyrz2},{magx2},{magy2},{magz2},{micros}\n')
             except Exception as ex:
                 print(f'Failed to unpack data: {ex}')
     

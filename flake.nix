@@ -23,6 +23,7 @@
               numpy
               pandas
               filterpy
+              opencv4
             ]))
             arduino-cli
             tio
