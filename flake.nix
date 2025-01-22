@@ -12,6 +12,19 @@
     in
     {
       packages."${system}" = rec {
+        ahrs = pkgs.python3Packages.buildPythonPackage rec {
+          name = "ahrs";
+          version = "0.4.0";
+          format = "pyproject";
+          src = pkgs.fetchFromGitHub {
+            owner = "Mayitzin";
+            repo = "${name}";
+            rev = "1933f72309909c770357182b19a966a08366dd32";
+            sha256 = "RrnoMzeVidLaZEu9Z3MFVaGBykfELFVlyBlzMSLrZn0=";
+          };
+
+          propagatedBuildInputs = with pkgs.python3Packages; [ numpy hatchling docutils ];
+        };
         pen = pkgs.stdenv.mkDerivation {
           pname = "pen";
           version = "0.0.1";
@@ -23,7 +36,10 @@
               numpy
               pandas
               filterpy
-              opencv4
+              (opencv4.override {
+                enableGtk3 = true;
+              })
+              self.outputs.packages."${system}".ahrs
             ]))
             arduino-cli
             tio

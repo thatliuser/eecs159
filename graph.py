@@ -12,20 +12,88 @@ data = pandas.read_csv(f)
 data['time'] = data['delay'].cumsum()
 data['time'] = data['time'] * 1e-6
 # Assume X is the axis facing downwards
-data['accx'] = (data['accx'] / 1000 + 1) * 9.8
-data['accy'] = data['accy'] / 1000 * 9.8
-data['accz'] = data['accz'] / 1000 * 9.8
-flat = data['accy'].mean()
-print(flat)
+data['accx1'] = (data['accx1'] / 1000 + 1) * 9.8
+data['accy1'] = data['accy1'] / 1000 * 9.8
+data['accz1'] = data['accz1'] / 1000 * 9.8
+data['accx2'] = (data['accx2'] / 1000 + 1) * 9.8
+data['accy2'] = data['accy2'] / 1000 * 9.8
+data['accz2'] = data['accz2'] / 1000 * 9.8
+flat = (data['accy1'].mean() + data['accy2'].mean()) / 2.0
+print(f'Average: {flat}')
 
 # Graph accel x, y, z in relation to time
 time = data['time']
-accx = data['accx']
-accy = data['accy'] + 0.18132400399331355
-accz = data['accz']
+accx1 = data['accx1']
+accy1 = data['accy1']
+accz1 = data['accz1']
+accx2 = data['accx2']
+accy2 = data['accy2']
+accz2 = data['accz2']
 
-data['facc'] = accy
-data.loc[(data['facc'] < 0.063) & (data['facc'] > -0.063), 'facc'] = 0.
+dt = data['delay'].mean() * 1e-6
+
+# First two are sensor accel, last two are jerk
+kfa = KalmanFilter(dim_x=4, dim_z=2)
+kfa.x = np.array([accy1.iloc[0], accy2.iloc[0], 0, 0])
+kfa.P = np.array([[1., 1, 0, 0],
+                [1, 1., 0, 0],
+                [0., 0, 1, 1],
+                [0., 0, 1, 1]])
+# This is basically just x' = x + dx * dt but for two sensors
+# And the two sensors do not "collide" in update
+kfa.F = np.array([[1., 0, dt, 0],
+                 [0., 1, 0, dt],
+                 [0., 0, 1, 0],
+                 [0., 0, 0, 1]])
+kfa.H = np.array([[1., 0, 0, 0],
+                [0., 1, 0, 0]])
+kfa.R = np.diag([200., 200])
+
+kfacc, covs, _, _ = kfa.batch_filter(list(zip(accy1, accy2)))
+
+pyplot.title('Accelerations vs. Time')
+pyplot.xlabel('Time')
+pyplot.ylabel('Acceleration')
+pyplot.plot(time, accy1, label='Y accel, sensor 1')
+pyplot.plot(time, accy2, label='Y accel, sensor 2')
+pyplot.plot(time, kfacc[:, 0], label='Y accel, kalman filtered sensor 1')
+pyplot.plot(time, kfacc[:, 1], label='Y accel, kalman filtered sensor 2')
+pyplot.legend()
+pyplot.savefig('accels-multi.png')
+pyplot.clf()
+
+gyrx1 = data['gyrx1']
+gyrx2 = data['gyrx2']
+
+kfg = KalmanFilter(dim_x=4, dim_z=2)
+kfg.x = np.array([gyrx1.iloc[0], gyrx2.iloc[0], 0, 0])
+kfg.P = np.array([[1., 1, 0, 0],
+                [1, 1., 0, 0],
+                [0., 0, 1, 1],
+                [0., 0, 1, 1]])
+kfg.F = np.array([[1., 0, dt, 0],
+                 [0., 1, 0, dt],
+                 [0., 0, 1, 0],
+                 [0., 0, 0, 1]])
+kfg.H = np.array([[1., 0, 0, 0],
+                [0., 1, 0, 0]])
+kfg.R = np.diag([100., 100])
+kfgyr, covs, _, _ = kfg.batch_filter(list(zip(gyrx1, gyrx2)))
+
+pyplot.title('Orientation vs. Time')
+pyplot.xlabel('Time')
+pyplot.ylabel('Angle')
+pyplot.plot(time, data['gyrx1'], label='X gyro, sensor 1')
+pyplot.plot(time, data['gyrx2'], label='X gyro, sensor 2')
+pyplot.plot(time, kfgyr[:, 0], label='X gyro, kalman filtered sensor 1')
+pyplot.plot(time, kfgyr[:, 1], label='X gyro, kalman filtered sensor 2')
+pyplot.savefig('gyro.png')
+pyplot.clf()
+
+raise ImportError()
+
+# data['facc'] = accy
+# data.loc[(data['facc'] < 0.063) & (data['facc'] > -0.063), 'facc'] = 0.
 
 data['veldeltay'] = accy * time
 data['vely'] = data['veldeltay'].cumsum()
