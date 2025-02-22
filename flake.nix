@@ -36,9 +36,6 @@
               numpy
               pandas
               filterpy
-              (opencv4.override {
-                enableGtk3 = true;
-              })
               self.outputs.packages."${system}".ahrs
             ]))
             arduino-cli
