@@ -53,7 +53,7 @@ csvkeys = list(RecordingRow.__annotations__.keys())
 # fig, ax = plt.subplots()
 fig = plt.figure()
 ax = fig.add_subplot(projection="3d")
-pen = Position(500)
+pen = Position(5000)
 board = Position(500)
 sc = ax.scatter(pen.x, pen.y, pen.z, s=50)
 stop = False
@@ -220,6 +220,8 @@ def run_csv(reader: csv.DictReader):
         except IndexError:
             break
 
+    plt.pause(30)
+
 
 def main():
     parser = ArgumentParser(
@@ -238,16 +240,21 @@ def main():
     ax.set_zlabel("Z position")
     ax.set_title("Position plot")
 
-    point = np.array([0.032862596213817596, -0.04316224902868271, 0.67679363489151])
-    normal = np.array([-0.3062188923358917, 0.35008373856544495, 0.6145609021186829])
-    d = -point.dot(normal)
+    p1 = np.array([0.2180504947900772, 0.0801948681473732, 1.0031836032867432])
+    p2 = np.array([0.2777043581008911, 0.12020166218280792, 1.0866999626159668])
+    p3 = np.array([0.2262544482946396, 0.12422788143157959, 1.0066068172454834])
 
-    r = [x / 20.0 for x in range(-10, 10)]
+    v1 = np.array([p1[0] - p2[0], p1[1] - p2[1], p1[2] - p2[2]])
+    v2 = np.array([p2[0] - p3[0], p2[1] - p3[1], p2[2] - p3[2]])
 
+    normal = np.cross(v1, v2)
+    d = -np.dot(normal, np.array([p1[0], p1[1], p1[2]]))  # Compute d using point 0
+
+    r = np.linspace(-1, 1, 10)  # Create a range of values for x and y (from 0 to 1)
     xx, yy = np.meshgrid(r, r)
-    z = (-normal[0] * xx - normal[1] * yy - d) * 1.0 / normal[2]
+    zz = (-normal[0] * xx - normal[1] * yy - d) * 1.0 / normal[2]
 
-    ax.plot_surface(xx, yy, z, alpha=0.2)
+    ax.plot_surface(xx, yy, zz, alpha=0.2)
     # ax.scatter([point[0]], [point[1]], [point[2]])
 
     plt.show()
