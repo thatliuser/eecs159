@@ -22,6 +22,7 @@ while True:
 
     if tracker is None:
         contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        cv2.drawContours(frame, contours, -1, (255, 0, 0), 3)
         max_c = None
         max_area = 0
         for c in contours:
@@ -51,7 +52,7 @@ while True:
 
     cv2.imshow('objs', frame)
 
-    key = cv2.waitKey(5)
+    key = cv2.waitKey(0)
     if key == ord('q'):
         break
 
