@@ -3,6 +3,7 @@ import struct
 import selectors
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 import csv
 from dataclasses import dataclass
 from collections import deque
@@ -53,13 +54,12 @@ csvkeys = list(RecordingRow.__annotations__.keys())
 fig = plt.figure()
 ax = fig.add_subplot(projection="3d")
 pen = Position(500)
-board = Position()
-(hl,) = plt.plot(pen.x, pen.y, pen.z)
+board = Position(500)
+sc = ax.scatter(pen.x, pen.y, pen.z, s=50)
 stop = False
 
 
-def on_packet(sock: socket.socket, writer: csv.DictWriter):
-    rows: list[RecordingRow] = []
+def on_packet(sock: socket.socket, rows: deque[RecordingRow]):
     while True:
         try:
             data, _ = sock.recvfrom(1024)
@@ -97,7 +97,7 @@ def on_packet(sock: socket.socket, writer: csv.DictWriter):
             # print(err)
             break
 
-    writer.writerows(rows)
+    # writer.writerows(rows)
     # hl.set_cdata(np.array(t))
 
 
@@ -129,15 +129,28 @@ def update_plot():
     xd = np.array(pen.x)
     yd = np.array(pen.y)
     zd = np.array(pen.z)
-    hl.set_data_3d(xd, zd, yd)
+    td = np.array(pen.t)
+
+    sc._offsets3d = (xd, yd, zd)
+    # hl.set_data_3d(xd, yd, zd)
     if not len(xd) == 0:
         xlim = get_lims(xd, xlim)
         ax.set_xlim(*xlim)
-    if not len(zd) == 0:
-        ax.set_ylim(*ylim)
     if not len(yd) == 0:
-        zlim = get_lims(yd, zlim)
+        ylim = get_lims(yd, ylim)
+        ax.set_ylim(*ylim)
+    if not len(zd) == 0:
+        zlim = get_lims(zd, zlim)
         ax.set_zlim(*zlim)
+
+    if len(td) > 1:
+        norm_td = (td - td.min()) / (td.max() - td.min())
+    else:
+        norm_td = np.zeros_like(td)
+
+    colors = cm.viridis_r(norm_td)
+    sc.set_color(colors)
+
     fig.canvas.draw_idle()
 
 
@@ -152,15 +165,19 @@ def run_udp(writer: csv.DictWriter):
     sel = selectors.DefaultSelector()
     sel.register(sock, selectors.EVENT_READ)
 
+    rows: deque[RecordingRow] = deque()
+
     while not stop:
         events = sel.select(timeout=0.01)
         for key, _ in events:
-            on_packet(sock, writer)
+            on_packet(sock, rows)
 
         if not len(events) == 0:
             update_plot()
 
         fig.canvas.flush_events()
+
+    writer.writerows(rows)
 
 
 def run_csv(reader: csv.DictReader):
@@ -220,6 +237,18 @@ def main():
     ax.set_ylabel("Y position")
     ax.set_zlabel("Z position")
     ax.set_title("Position plot")
+
+    point = np.array([0.032862596213817596, -0.04316224902868271, 0.67679363489151])
+    normal = np.array([-0.3062188923358917, 0.35008373856544495, 0.6145609021186829])
+    d = -point.dot(normal)
+
+    r = [x / 20.0 for x in range(-10, 10)]
+
+    xx, yy = np.meshgrid(r, r)
+    z = (-normal[0] * xx - normal[1] * yy - d) * 1.0 / normal[2]
+
+    ax.plot_surface(xx, yy, z, alpha=0.2)
+    # ax.scatter([point[0]], [point[1]], [point[2]])
 
     plt.show()
     fig.canvas.mpl_connect("close_event", on_close)
