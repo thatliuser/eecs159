@@ -180,7 +180,7 @@ def run_udp(writer: csv.DictWriter):
     writer.writerows(rows)
 
 
-def run_csv(reader: csv.DictReader):
+def run_csv(reader: csv.DictReader, animate: bool):
     rows: deque[RecordingRow] = deque([row for row in reader])
     # Ignore header
     rows.popleft()
@@ -188,39 +188,50 @@ def run_csv(reader: csv.DictReader):
         return
     recstart = float(rows[1]["time"])
     start = datetime.now()
-    while not stop:
-        sleep(0.01)
+    if animate:
+        while not stop:
+            sleep(0.01)
 
-        now = datetime.now()
+            now = datetime.now()
 
-        try:
-            added = 0
-            while True:
-                row = rows.popleft()
-                rectime = float(row["time"])
-                if rectime - recstart < (now - start).total_seconds():
-                    id = int(row["id"])
-                    x, y, z = (float(row["x"]), float(row["y"]), float(row["z"]))
-                    time = float(row["time"])
-                    if id == 2:
-                        pen.append((x, y, z), time)
-                    elif id == 1:
-                        board.append((x, y, z), time)
+            try:
+                added = 0
+                while True:
+                    row = rows.popleft()
+                    rectime = float(row["time"])
+                    if rectime - recstart < (now - start).total_seconds():
+                        id = int(row["id"])
+                        x, y, z = (float(row["x"]), float(row["y"]), float(row["z"]))
+                        time = float(row["time"])
+                        if id == 2:
+                            pen.append((x, y, z), time)
+                        elif id == 1:
+                            board.append((x, y, z), time)
 
-                    added += 1
-                else:
-                    # Put it back
-                    rows.appendleft(row)
-                    break
+                        added += 1
+                    else:
+                        # Put it back
+                        rows.appendleft(row)
+                        break
 
-            if added > 0:
-                update_plot()
+                if added > 0:
+                    update_plot()
 
-            fig.canvas.flush_events()
-        except IndexError:
-            break
+                fig.canvas.flush_events()
+            except IndexError:
+                break
+    else:
+        for row in rows:
+            id = int(row["id"])
+            x, y, z = (float(row["x"]), float(row["y"]), float(row["z"]))
+            time = float(row["time"])
+            if id == 2:
+                pen.append((x, y, z), time)
 
-    plt.pause(30)
+        update_plot()
+
+    plt.ioff()
+    plt.show()
 
 
 def main():
@@ -231,6 +242,13 @@ def main():
         "-f",
         "--file",
         help="Specify a file to read data from rather than a UDP socket.",
+    )
+    parser.add_argument(
+        "-na",
+        "--no-animate",
+        action="store_true",
+        default=False,
+        help="In replay mode, whether or not to animate the sequence.",
     )
     args = parser.parse_args()
 
@@ -263,7 +281,7 @@ def main():
     if args.file:
         with open(args.file, "r") as infile:
             reader = csv.DictReader(infile, fieldnames=csvkeys)
-            run_csv(reader)
+            run_csv(reader, not args.no_animate)
     else:
         with open("recording.csv", "w") as outfile:
             writer = csv.DictWriter(outfile, fieldnames=csvkeys)
