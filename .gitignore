@@ -1,6 +1,7 @@
 build/
 .cache/
 *.csv
+!samples/*.csv
 *.png
 *.mov
 __pycache__/
