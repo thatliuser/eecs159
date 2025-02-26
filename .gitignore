@@ -3,3 +3,4 @@ build/
 *.csv
 *.png
 *.mov
+__pycache__/
