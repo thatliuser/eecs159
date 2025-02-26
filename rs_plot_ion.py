@@ -180,6 +180,24 @@ def run_udp(writer: csv.DictWriter):
     writer.writerows(rows)
 
 
+# Normal - normal vector
+# ppt - point that's on the plane
+# pts - points to project onto the plane
+# Returns list of projected points
+def project(normal: np.ndarray, ppt: np.ndarray, pts: np.ndarray) -> np.ndarray:
+    projected = []
+    for pt in pts:
+        vdiff = pt - ppt
+        vproj = (np.dot(vdiff, normal) / np.dot(normal, normal)) * normal
+        proj = pt - vproj
+
+        dist = np.linalg.norm(proj - pt)
+        if dist < 0.1:
+            projected.append(proj)
+
+    return np.array(projected)
+
+
 def run_csv(reader: csv.DictReader, animate: bool):
     rows: deque[RecordingRow] = deque([row for row in reader])
     # Ignore header
@@ -228,6 +246,22 @@ def run_csv(reader: csv.DictReader, animate: bool):
             if id == 2:
                 pen.append((x, y, z), time)
 
+        # Calculate projection
+        p1 = np.array([0.2180504947900772, 0.0801948681473732, 1.0031836032867432])
+        p2 = np.array([0.2777043581008911, 0.12020166218280792, 1.0866999626159668])
+        p3 = np.array([0.2262544482946396, 0.12422788143157959, 1.0066068172454834])
+
+        v1 = np.array([p1[0] - p2[0], p1[1] - p2[1], p1[2] - p2[2]])
+        v2 = np.array([p2[0] - p3[0], p2[1] - p3[1], p2[2] - p3[2]])
+
+        normal = np.cross(v1, v2)
+
+        poses = np.column_stack((pen.x, pen.y, pen.z))
+        proj = project(normal, p1, poses)
+        print(proj)
+
+        ax.scatter(proj[:, 0], proj[:, 1], proj[:, 2])
+
         update_plot()
 
     plt.ioff()
@@ -272,7 +306,22 @@ def main():
     xx, yy = np.meshgrid(r, r)
     zz = (-normal[0] * xx - normal[1] * yy - d) * 1.0 / normal[2]
 
+    o = [-0.4, 0.4]
+    x = [0.4, 0.4]
+    y = [-0.4, -0.4]
+    # ybound = [-0.4, 0.4]
+    oz = (-normal[0] * o[0] - normal[1] * o[1] - d) * 1.0 / normal[2]
+    xz = (-normal[0] * x[0] - normal[1] * x[1] - d) * 1.0 / normal[2]
+    yz = (-normal[0] * y[0] - normal[1] * y[1] - d) * 1.0 / normal[2]
+
+    ovec = np.array([*o, oz])
+    xvec = np.array([*x, xz])
+    yvec = np.array([*y, yz])
+
     ax.plot_surface(xx, yy, zz, alpha=0.2)
+    ax.scatter(*ovec)
+    ax.scatter(*xvec)
+    ax.scatter(*yvec)
     # ax.scatter([point[0]], [point[1]], [point[2]])
 
     plt.show()
