@@ -49,7 +49,7 @@ def get_lims(arr: np.ndarray, lims: tuple[float, float]) -> tuple[float, float]:
     return (min, max)
 
 
-def update_plot():
+def update_plot(alpha: float = 1.0):
     global xlim, ylim, zlim
 
     xd = np.array(pen.x)
@@ -58,6 +58,7 @@ def update_plot():
     td = np.array(pen.t)
 
     sc._offsets3d = (xd, yd, zd)
+    sc.set_alpha(alpha)
     # hl.set_data_3d(xd, yd, zd)
     if not len(xd) == 0:
         xlim = get_lims(xd, xlim)
