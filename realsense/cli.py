@@ -9,23 +9,40 @@ from .record import record
 
 
 # TODO: Move this to own file (calibrate, on_packet)
-def calibrate():
+def calibrate(writer: csv.DictWriter):
     import socket
     import selectors
     import struct
     from .util import Position
+    from .record import RecordingRow
+    from collections import deque
 
-    def on_packet(sock: socket.socket, pos: Position):
+    def on_packet(sock: socket.socket, pos: Position, rows: deque[RecordingRow]):
         while True:
             try:
                 data, _ = sock.recvfrom(1024)
 
                 unpacked_data = struct.unpack("q d fff ffff i", data)
-                # serialNumber = unpacked_data[0]
+                serialNumber = unpacked_data[0]
                 timestamp = unpacked_data[1]
                 position = unpacked_data[2:5]
-                # quaternion = unpacked_data[5:9]
-                # toolId = unpacked_data[9]
+                quaternion = unpacked_data[5:9]
+                toolId = unpacked_data[9]
+
+                rows.append(
+                    {
+                        "sno": serialNumber,
+                        "time": timestamp,
+                        "x": position[0],
+                        "y": position[1],
+                        "z": position[2],
+                        "qx": quaternion[0],
+                        "qy": quaternion[1],
+                        "qz": quaternion[2],
+                        "qw": quaternion[3],
+                        "id": toolId,
+                    }
+                )
 
                 pos.append(position, timestamp)
                 util.pen.append(position, timestamp)
@@ -42,7 +59,7 @@ def calibrate():
         zstd = np.std(pos.z)
         return bool(xstd < thresh and ystd < thresh and zstd < thresh)
 
-    def calibrate_point(sel: selectors.DefaultSelector):
+    def calibrate_point(sel: selectors.DefaultSelector, rows: deque[RecordingRow]):
         # 150 / 30fps is around 5 seconds
         pos = Position(300)
 
@@ -52,7 +69,7 @@ def calibrate():
 
             events = sel.select(timeout=0.01)
             for key, _ in events:
-                on_packet(sock, pos)
+                on_packet(sock, pos, rows)
 
             if not len(events) == 0:
                 util.update_plot(0.1)
@@ -63,6 +80,8 @@ def calibrate():
         print(f"({x}, {y}, {z})")
 
         util.ax.scatter(x, y, z, c="red", s=100)
+
+    rows: deque[RecordingRow] = deque()
 
     UDP_IP = "0.0.0.0"  # Listen on all interfaces
     UDP_PORT = 12345  # Replace with your port number
@@ -75,7 +94,78 @@ def calibrate():
     sel.register(sock, selectors.EVENT_READ)
 
     for i in range(0, 4):
-        calibrate_point(sel)
+        calibrate_point(sel, rows)
+
+    writer.writerows(rows)
+
+    plt.ioff()
+    plt.show()
+
+
+def calibrate_file(reader: csv.DictReader, animate: bool):
+    from collections import deque
+    from .record import RecordingRow
+    from datetime import datetime
+    from time import sleep
+    from .util import Position
+
+    rows: deque[RecordingRow] = deque([row for row in reader])
+    # Ignore header
+    rows.popleft()
+    if len(rows) < 2:
+        return
+    recstart = float(rows[1]["time"])
+    start = datetime.now()
+
+    def stable(pos: Position) -> bool:
+        thresh = 0.03
+        xstd = np.std(pos.x)
+        ystd = np.std(pos.y)
+        zstd = np.std(pos.z)
+        return bool(xstd < thresh and ystd < thresh and zstd < thresh)
+
+    def calibrate_point(rows: deque[RecordingRow]):
+        pos = Position(300)
+
+        while not len(pos.x) == pos.x.maxlen or not stable(pos):
+            sleep(0.01)
+
+            now = datetime.now()
+
+            try:
+                added = 0
+                while True:
+                    row = rows.popleft()
+                    rectime = float(row["time"])
+                    if rectime - recstart < (now - start).total_seconds():
+                        x, y, z = (float(row["x"]), float(row["y"]), float(row["z"]))
+                        time = float(row["time"])
+                        pos.append((x, y, z), time)
+                        util.pen.append((x, y, z), time)
+
+                        added += 1
+                    else:
+                        # Put it back
+                        rows.appendleft(row)
+                        break
+
+                if added > 0:
+                    util.update_plot(0.1)
+
+                util.fig.canvas.flush_events()
+
+                if util.stop:
+                    return
+            except IndexError:
+                return
+
+        x, y, z = np.mean(pos.x), np.mean(pos.y), np.mean(pos.z)
+        print(f"({x}, {y}, {z})")
+
+        util.ax.scatter(x, y, z, c="red", s=100)
+
+    for i in range(0, 4):
+        calibrate_point(rows)
 
     plt.ioff()
     plt.show()
@@ -107,7 +197,12 @@ def cli_main():
         "--calibrate",
         action="store_true",
         default=False,
-        help="Whether to calibrate the plane of writing.",
+        help="Detect the plane of writing with live calibration.",
+    )
+    parser.add_argument(
+        "-cf",
+        "--calibrate-file",
+        help="Specify a file with a calibration recording to calibrate.",
     )
     args = parser.parse_args()
 
@@ -137,8 +232,15 @@ def cli_main():
     plt.show()
     util.fig.canvas.mpl_connect("close_event", on_close)
 
-    if args.calibrate:
-        calibrate()
+    if args.calibrate_file:
+        with open(args.calibrate_file, "r") as infile:
+            reader = csv.DictReader(infile, fieldnames=csvkeys)
+            calibrate_file(reader, not args.no_animate)
+    elif args.calibrate:
+        with open("calibrate.csv", "w") as outfile:
+            writer = csv.DictWriter(outfile, fieldnames=csvkeys)
+            writer.writeheader()
+            calibrate(writer)
     elif args.file:
         with open(args.file, "r") as infile:
             reader = csv.DictReader(infile, fieldnames=csvkeys)
