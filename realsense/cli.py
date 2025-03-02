@@ -107,7 +107,9 @@ def calibrate_file(reader: csv.DictReader, animate: bool):
     from .record import RecordingRow
     from datetime import datetime
     from time import sleep
+    from . import util
     from .util import Position
+    from typing import Optional
 
     rows: deque[RecordingRow] = deque([row for row in reader])
     # Ignore header
@@ -124,7 +126,9 @@ def calibrate_file(reader: csv.DictReader, animate: bool):
         zstd = np.std(pos.z)
         return bool(xstd < thresh and ystd < thresh and zstd < thresh)
 
-    def calibrate_point(rows: deque[RecordingRow], animate: bool):
+    def calibrate_point(
+        rows: deque[RecordingRow], animate: bool
+    ) -> Optional[np.ndarray]:
         pos = Position(300)
 
         while not len(pos.x) == pos.x.maxlen or not stable(pos):
@@ -171,20 +175,41 @@ def calibrate_file(reader: csv.DictReader, animate: bool):
                     util.pen.append((x, y, z), time)
 
                 if util.stop:
-                    return
+                    return None
             except IndexError:
-                return
+                return None
 
         x, y, z = np.mean(pos.x), np.mean(pos.y), np.mean(pos.z)
-        print(f"({x}, {y}, {z})")
 
         util.ax.scatter(x, y, z, c="red", s=100)
 
+        return np.array([x, y, z])
+
+    points: list[np.ndarray] = []
     for i in range(0, 4):
-        calibrate_point(rows, animate)
+        point = calibrate_point(rows, animate)
+        if point is None:
+            return
+        print(point)
+        points.append(point)
 
     if not animate:
         util.update_plot(0.1)
+
+    xaxis = points[1] - points[0]
+    yaxis = points[2] - points[0]
+
+    # Annotate axes
+    util.ax.quiver(*points[0], *xaxis, color="blue")
+    util.ax.quiver(*points[0], *yaxis, color="green")
+
+    zaxis = np.cross(xaxis, yaxis)
+    d = -np.dot(zaxis, points[0])
+    r = np.linspace(-1, 1, 10)  # Create a range of values for x and y (from 0 to 1)
+    xx, yy = np.meshgrid(r, r)
+    zz = (-zaxis[0] * xx - zaxis[1] * yy - d) * 1.0 / zaxis[2]
+
+    util.ax.plot_surface(xx, yy, zz, alpha=0.2)
 
     plt.ioff()
     plt.show()
@@ -231,21 +256,21 @@ def cli_main():
     util.ax.set_zlabel("Z position")
     util.ax.set_title("Position plot (uncalibrated)")
 
-    p1 = np.array([0.2180504947900772, 0.0801948681473732, 1.0031836032867432])
-    p2 = np.array([0.2777043581008911, 0.12020166218280792, 1.0866999626159668])
-    p3 = np.array([0.2262544482946396, 0.12422788143157959, 1.0066068172454834])
+    # p1 = np.array([0.2180504947900772, 0.0801948681473732, 1.0031836032867432])
+    # p2 = np.array([0.2777043581008911, 0.12020166218280792, 1.0866999626159668])
+    # p3 = np.array([0.2262544482946396, 0.12422788143157959, 1.0066068172454834])
 
-    v1 = p1 - p2
-    v2 = p2 - p3
+    # v1 = p1 - p2
+    # v2 = p2 - p3
 
-    normal = np.cross(v1, v2)
-    d = -np.dot(normal, p1)  # Compute d using point 0
+    # normal = np.cross(v1, v2)
+    # d = -np.dot(normal, p1)  # Compute d using point 0
 
-    r = np.linspace(-1, 1, 10)  # Create a range of values for x and y (from 0 to 1)
-    xx, yy = np.meshgrid(r, r)
-    zz = (-normal[0] * xx - normal[1] * yy - d) * 1.0 / normal[2]
+    # r = np.linspace(-1, 1, 10)  # Create a range of values for x and y (from 0 to 1)
+    # xx, yy = np.meshgrid(r, r)
+    # zz = (-normal[0] * xx - normal[1] * yy - d) * 1.0 / normal[2]
 
-    util.ax.plot_surface(xx, yy, zz, alpha=0.2)
+    # util.ax.plot_surface(xx, yy, zz, alpha=0.2)
     # ax.scatter([point[0]], [point[1]], [point[2]])
 
     plt.show()
