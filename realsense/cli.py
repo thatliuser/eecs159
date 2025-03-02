@@ -124,35 +124,51 @@ def calibrate_file(reader: csv.DictReader, animate: bool):
         zstd = np.std(pos.z)
         return bool(xstd < thresh and ystd < thresh and zstd < thresh)
 
-    def calibrate_point(rows: deque[RecordingRow]):
+    def calibrate_point(rows: deque[RecordingRow], animate: bool):
         pos = Position(300)
 
         while not len(pos.x) == pos.x.maxlen or not stable(pos):
-            sleep(0.01)
+            if animate:
+                sleep(0.01)
 
             now = datetime.now()
 
             try:
                 added = 0
-                while True:
+                if animate:
+                    while True:
+                        row = rows.popleft()
+                        rectime = float(row["time"])
+                        if rectime - recstart < (now - start).total_seconds():
+                            x, y, z = (
+                                float(row["x"]),
+                                float(row["y"]),
+                                float(row["z"]),
+                            )
+                            time = float(row["time"])
+                            pos.append((x, y, z), time)
+                            util.pen.append((x, y, z), time)
+
+                            added += 1
+                        else:
+                            # Put it back
+                            rows.appendleft(row)
+                            break
+
+                    if added > 0:
+                        util.update_plot(0.1)
+
+                    util.fig.canvas.flush_events()
+                else:
                     row = rows.popleft()
-                    rectime = float(row["time"])
-                    if rectime - recstart < (now - start).total_seconds():
-                        x, y, z = (float(row["x"]), float(row["y"]), float(row["z"]))
-                        time = float(row["time"])
-                        pos.append((x, y, z), time)
-                        util.pen.append((x, y, z), time)
-
-                        added += 1
-                    else:
-                        # Put it back
-                        rows.appendleft(row)
-                        break
-
-                if added > 0:
-                    util.update_plot(0.1)
-
-                util.fig.canvas.flush_events()
+                    x, y, z = (
+                        float(row["x"]),
+                        float(row["y"]),
+                        float(row["z"]),
+                    )
+                    time = float(row["time"])
+                    pos.append((x, y, z), time)
+                    util.pen.append((x, y, z), time)
 
                 if util.stop:
                     return
@@ -165,7 +181,10 @@ def calibrate_file(reader: csv.DictReader, animate: bool):
         util.ax.scatter(x, y, z, c="red", s=100)
 
     for i in range(0, 4):
-        calibrate_point(rows)
+        calibrate_point(rows, animate)
+
+    if not animate:
+        util.update_plot(0.1)
 
     plt.ioff()
     plt.show()
