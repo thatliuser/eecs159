@@ -25,6 +25,12 @@ class Position:
         self.z.append(z)
         self.t.append(t)
 
+    def clear(self):
+        self.x = []
+        self.y = []
+        self.z = []
+        self.t = []
+
 
 # TODO: Move this to a singleton (?)
 stop = False

@@ -6,6 +6,8 @@ import csv
 
 from .replay import RecordingRow
 from . import util
+from matplotlib.widgets import Button
+import matplotlib.pyplot as plt
 
 
 def on_packet(sock: socket.socket, rows: deque[RecordingRow]):
@@ -50,6 +52,11 @@ def on_packet(sock: socket.socket, rows: deque[RecordingRow]):
     # hl.set_cdata(np.array(t))
 
 
+def clear_data(event):
+    util.pen.clear()
+    util.update_plot()
+
+
 def record(writer: csv.DictWriter):
     UDP_IP = "0.0.0.0"  # Listen on all interfaces
     UDP_PORT = 12345  # Replace with your port number
@@ -57,6 +64,10 @@ def record(writer: csv.DictWriter):
     sock.bind((UDP_IP, UDP_PORT))
     sock.setblocking(False)
     print("Listening on port:", UDP_PORT)
+
+    button_ax = plt.axes([0.7, 0.05, 0.1, 0.075])
+    clear = Button(button_ax, "Clear data")
+    clear.on_clicked(clear_data)
 
     sel = selectors.DefaultSelector()
     sel.register(sock, selectors.EVENT_READ)
