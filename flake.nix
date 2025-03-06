@@ -36,6 +36,7 @@
               numpy
               pandas
               filterpy
+              python-uinput
               self.outputs.packages."${system}".ahrs
             ]))
             arduino-cli
