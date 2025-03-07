@@ -4,8 +4,8 @@ import csv
 import matplotlib.pyplot as plt
 
 from . import util
-from .replay import replay, csvkeys
-from .record import record
+from .replay import csvkeys, FileSource
+from .record import SocketSource
 
 
 # TODO: Move this to own file (calibrate, on_packet)
@@ -333,11 +333,11 @@ def cli_main():
             writer.writeheader()
             calibrate(writer)
     elif args.file:
-        with open(args.file, "r") as infile:
-            reader = csv.DictReader(infile, fieldnames=csvkeys)
-            replay(reader, not args.no_animate)
+        src = FileSource(args.file, not args.no_animate)
+        src.run()
+        # with open(args.file, "r") as infile:
+        #    reader = csv.DictReader(infile, fieldnames=csvkeys)
+        #    replay(reader, not args.no_animate)
     else:
-        with open("recording.csv", "w") as outfile:
-            writer = csv.DictWriter(outfile, fieldnames=csvkeys)
-            writer.writeheader()
-            record(writer)
+        src = SocketSource()
+        src.run()

@@ -31,6 +31,12 @@ class Position:
         self.z = []
         self.t = []
 
+    def stable(self, thresh=0.03) -> bool:
+        xstd = np.std(self.x)
+        ystd = np.std(self.y)
+        zstd = np.std(self.z)
+        return bool(xstd < thresh and ystd < thresh and zstd < thresh)
+
 
 # TODO: Move this to a singleton (?)
 stop = False

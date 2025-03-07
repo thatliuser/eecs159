@@ -7,6 +7,7 @@ from collections import deque
 import matplotlib.pyplot as plt
 
 from . import util
+from .source import DataSource
 
 
 class RecordingRow(TypedDict):
@@ -23,6 +24,79 @@ class RecordingRow(TypedDict):
 
 
 csvkeys = list(RecordingRow.__annotations__.keys())
+
+
+class FileSource(DataSource):
+    rows: deque[RecordingRow]
+    animate: bool
+    recstart: float
+    start: datetime
+    done: bool
+
+    def __init__(self, file: str, animate: bool):
+        with open(file, "r") as input:
+            reader = csv.DictReader(input, fieldnames=csvkeys)
+            self.rows = deque([row for row in reader])
+            # Ignore header
+            self.rows.popleft()
+            if len(self.rows) < 2:
+                raise NotImplementedError("Not enough rows in recording file!")
+            self.animate = animate
+            self.recstart = float(self.rows[1]["time"])
+            self.start = datetime.now()
+            self.done = False
+
+    # Process entries that should be processed in the current tick
+    # Returns the number of entries processed
+    def chomp(self) -> int:
+        added = 0
+        now = datetime.now()
+
+        try:
+            while True:
+                row = self.rows.popleft()
+                rectime = float(row["time"])
+                if rectime - self.recstart < (now - self.start).total_seconds():
+                    id = int(row["id"])
+                    x, y, z = (
+                        float(row["x"]),
+                        float(row["y"]),
+                        float(row["z"]),
+                    )
+                    time = float(row["time"])
+                    if id == 2:
+                        util.pen.append((x, y, z), time)
+                    elif id == 1:
+                        util.board.append((x, y, z), time)
+
+                    added += 1
+                else:
+                    # Put it back
+                    self.rows.appendleft(row)
+                    break
+        except IndexError:
+            self.done = True
+
+        return added
+
+    def tick(self) -> bool:
+        if self.done:
+            raise IndexError("Recording finished")
+        elif self.animate:
+            sleep(0.01)
+            return self.chomp() > 0
+        else:
+            row = self.rows.popleft()
+            # id = int(row["id"])
+            x, y, z = (float(row["x"]), float(row["y"]), float(row["z"]))
+            time = float(row["time"])
+            util.pen.append((x, y, z), time)
+
+            return True
+
+    def finalize(self):
+        # No cleanup needed, really
+        pass
 
 
 def project2d(

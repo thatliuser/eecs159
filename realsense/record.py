@@ -4,52 +4,12 @@ import struct
 import selectors
 import csv
 
-from .replay import RecordingRow
+from .replay import RecordingRow, csvkeys
+from .source import DataSource
 from . import util
 from matplotlib.widgets import Button
+from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
-
-
-def on_packet(sock: socket.socket, rows: deque[RecordingRow]):
-    while True:
-        try:
-            data, _ = sock.recvfrom(1024)
-
-            unpacked_data = struct.unpack("q d fff ffff i", data)
-            serialNumber = unpacked_data[0]
-            timestamp = unpacked_data[1]
-            position = unpacked_data[2:5]
-            quaternion = unpacked_data[5:9]
-            toolId = unpacked_data[9]
-
-            rows.append(
-                {
-                    "sno": serialNumber,
-                    "time": timestamp,
-                    "x": position[0],
-                    "y": position[1],
-                    "z": position[2],
-                    "qx": quaternion[0],
-                    "qy": quaternion[1],
-                    "qz": quaternion[2],
-                    "qw": quaternion[3],
-                    "id": toolId,
-                }
-            )
-
-            # print(f'{timestamp}: Got new position ({position[0]}, {position[1]}, {position[2]})')
-            # TODO: Get a better way of determining this?
-            if toolId == 2:
-                util.pen.append(position, timestamp)
-            elif toolId == 1:
-                util.board.append(position, timestamp)
-        except socket.error:
-            # Done, exit
-            # print(err)
-            break
-
-    # writer.writerows(rows)
-    # hl.set_cdata(np.array(t))
 
 
 def clear_data(event):
@@ -57,31 +17,77 @@ def clear_data(event):
     util.update_plot()
 
 
-def record(writer: csv.DictWriter):
-    UDP_IP = "0.0.0.0"  # Listen on all interfaces
-    UDP_PORT = 12345  # Replace with your port number
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind((UDP_IP, UDP_PORT))
-    sock.setblocking(False)
-    print("Listening on port:", UDP_PORT)
+class SocketSource(DataSource):
+    sock: socket.socket
+    sel: selectors.DefaultSelector
+    rows: deque[RecordingRow]
+    writer: csv.DictWriter
+    # Need to be members, otherwise these get GC'ed I think
+    button_ax: Axes
+    clear: Button
 
-    button_ax = plt.axes([0.7, 0.05, 0.1, 0.075])
-    clear = Button(button_ax, "Clear data")
-    clear.on_clicked(clear_data)
+    def __init__(self, file: str = "recording.csv", port: int = 12345):
+        with open(file, "w") as output:
+            self.writer = csv.DictWriter(output, fieldnames=csvkeys)
+            listen_addr = "0.0.0.0"
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.sock.bind((listen_addr, port))
+            self.sock.setblocking(False)
+            print("Listening on port:", port)
 
-    sel = selectors.DefaultSelector()
-    sel.register(sock, selectors.EVENT_READ)
+            self.button_ax = plt.axes((0.7, 0.05, 0.1, 0.075))
+            self.clear = Button(self.button_ax, "Clear data")
+            self.clear.on_clicked(clear_data)
 
-    rows: deque[RecordingRow] = deque()
+            self.sel = selectors.DefaultSelector()
+            self.sel.register(self.sock, selectors.EVENT_READ)
 
-    while not util.stop:
-        events = sel.select(timeout=0.01)
+            self.rows = deque()
+
+    def on_packet(self):
+        while True:
+            try:
+                data, _ = self.sock.recvfrom(1024)
+
+                unpacked_data = struct.unpack("q d fff ffff i", data)
+                serialNumber = unpacked_data[0]
+                timestamp = unpacked_data[1]
+                position = unpacked_data[2:5]
+                quaternion = unpacked_data[5:9]
+                toolId = unpacked_data[9]
+
+                self.rows.append(
+                    {
+                        "sno": serialNumber,
+                        "time": timestamp,
+                        "x": position[0],
+                        "y": position[1],
+                        "z": position[2],
+                        "qx": quaternion[0],
+                        "qy": quaternion[1],
+                        "qz": quaternion[2],
+                        "qw": quaternion[3],
+                        "id": toolId,
+                    }
+                )
+
+                # print(f'{timestamp}: Got new position ({position[0]}, {position[1]}, {position[2]})')
+                # TODO: Get a better way of determining this?
+                util.pen.append(position, timestamp)
+            except socket.error:
+                # Done, exit
+                # print(err)
+                break
+
+        # writer.writerows(rows)
+        # hl.set_cdata(np.array(t))
+
+    def tick(self) -> bool:
+        events = self.sel.select(timeout=0.01)
         for key, _ in events:
-            on_packet(sock, rows)
+            self.on_packet()
 
-        if not len(events) == 0:
-            util.update_plot()
+        return not len(events) == 0
 
-        util.fig.canvas.flush_events()
-
-    writer.writerows(rows)
+    def finalize(self):
+        self.writer.writerows(self.rows)
