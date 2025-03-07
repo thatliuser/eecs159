@@ -34,6 +34,7 @@ class FileSource(DataSource):
     done: bool
 
     def __init__(self, file: str, animate: bool):
+        super().__init__()
         with open(file, "r") as input:
             reader = csv.DictReader(input, fieldnames=csvkeys)
             self.rows = deque([row for row in reader])

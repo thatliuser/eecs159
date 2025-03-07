@@ -12,21 +12,19 @@ from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
 
 
-def clear_data(event):
-    util.pen.clear()
-    util.update_plot()
-
-
 class SocketSource(DataSource):
     sock: socket.socket
     sel: selectors.DefaultSelector
     rows: deque[RecordingRow]
     writer: csv.DictWriter
+    calibrate: bool
+    calpos: util.Position
     # Need to be members, otherwise these get GC'ed I think
-    button_ax: Axes
+    calbutton: Button
     clear: Button
 
     def __init__(self, file: str = "recording.csv", port: int = 12345):
+        super().__init__()
         with open(file, "w") as output:
             self.writer = csv.DictWriter(output, fieldnames=csvkeys)
             listen_addr = "0.0.0.0"
@@ -35,14 +33,26 @@ class SocketSource(DataSource):
             self.sock.setblocking(False)
             print("Listening on port:", port)
 
-            self.button_ax = plt.axes((0.7, 0.05, 0.1, 0.075))
-            self.clear = Button(self.button_ax, "Clear data")
-            self.clear.on_clicked(clear_data)
+            self.calibrate = False
+            clear_ax = util.fig.add_axes((0.7, 0.05, 0.1, 0.075))
+            self.clear = Button(clear_ax, "Clear data")
+            self.clear.on_clicked(self.on_clear)
+            cal_ax = util.fig.add_axes((0.81, 0.05, 0.1, 0.075))
+            self.calbutton = Button(cal_ax, "Calibrate axes")
+            self.calbutton.on_clicked(self.on_calbutton)
+            self.calpos = util.Position(300)
 
             self.sel = selectors.DefaultSelector()
             self.sel.register(self.sock, selectors.EVENT_READ)
 
             self.rows = deque()
+
+    def on_clear(self, event):
+        util.pen.clear()
+        util.update_plot()
+
+    def on_calbutton(self, event):
+        self.calibrate = True
 
     def on_packet(self):
         while True:

@@ -6,7 +6,8 @@ from . import util
 
 
 class DataSource(ABC):
-    calibrate: bool
+    def __init__(self):
+        pass
 
     # Return value signifies whether to update the plot
     # before flushing events.
@@ -15,9 +16,6 @@ class DataSource(ABC):
     @abstractmethod
     def tick(self) -> bool:
         pass
-
-    def set_mode(self, calibrate: bool):
-        self.calibrate = calibrate
 
     @abstractmethod
     def finalize(self):
