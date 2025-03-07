@@ -25,17 +25,23 @@ class RecordingRow(TypedDict):
 csvkeys = list(RecordingRow.__annotations__.keys())
 
 
-def project2d(basis: np.ndarray, pts: np.ndarray, zthresh: float = 0.3) -> np.ndarray:
+def project2d(
+    basis: np.ndarray,
+    pts: np.ndarray,
+    origin: np.ndarray = np.array([0, 0, 0]),
+    zthresh: float = 0.3,
+) -> np.ndarray:
     # Change of basis matrix based on vectors we defined
     A = basis.T
     proj = []
     for pt in pts:
         # Transform to new basis
-        ppt = np.dot(A, np.array([pt]).T)
+        ppt = np.dot(A, np.array([pt - origin]).T)
         # Only include the point if it's close enough to Z = 0
-        if ppt[2] < zthresh:
+        if abs(ppt[2]) < zthresh:
             # Discard Z value after basis change
-            proj.append(ppt[0:2])
+            # TODO: Restore this
+            proj.append(ppt)
 
     return np.array(proj)
 

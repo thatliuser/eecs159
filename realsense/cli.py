@@ -102,7 +102,8 @@ def calibrate(writer: csv.DictWriter):
     plt.show()
 
 
-def calibrate_file(reader: csv.DictReader, animate: bool):
+# TODO: Same with this one
+def calibrate_file(reader: csv.DictReader, animate: bool, drawing):
     from collections import deque
     from .record import RecordingRow
     from datetime import datetime
@@ -199,11 +200,21 @@ def calibrate_file(reader: csv.DictReader, animate: bool):
     xaxis = points[1] - points[0]
     yaxis = points[2] - points[0]
 
+    # Calculate projection of Y onto X axis
+    dotxx = np.dot(xaxis, xaxis)
+    dotxy = np.dot(xaxis, yaxis)
+    projxy = (dotxy / dotxx) * xaxis
+    # "Rectify" the Y axis by calculating the vector rejection of the Y axis from the X
+    yaxis = yaxis - projxy
+
+    zaxis = np.cross(xaxis, yaxis)
     # Annotate axes
     util.ax.quiver(*points[0], *xaxis, color="blue")
     util.ax.quiver(*points[0], *yaxis, color="green")
+    util.ax.quiver(*points[0], *zaxis, color="purple")
 
-    zaxis = np.cross(xaxis, yaxis)
+    print(xaxis, yaxis, zaxis)
+
     d = -np.dot(zaxis, points[0])
     r = np.linspace(-1, 1, 10)  # Create a range of values for x and y (from 0 to 1)
     xx, yy = np.meshgrid(r, r)
@@ -211,7 +222,43 @@ def calibrate_file(reader: csv.DictReader, animate: bool):
 
     util.ax.plot_surface(xx, yy, zz, alpha=0.2)
 
+    from .replay import project2d
+
+    drawn = Position(5000)
+
+    if drawing is not None:
+        with open(drawing, "r") as infile:
+            reader2 = csv.DictReader(infile)
+            rows2: deque[RecordingRow] = deque([row for row in reader2])
+            for row in rows2:
+                x, y, z = (float(row["x"]), float(row["y"]), float(row["z"]))
+                time = float(row["time"])
+                drawn.append((x, y, z), time)
+
+            poses = np.column_stack((drawn.x, drawn.y, drawn.z))
+            proj2d = project2d(
+                np.array([xaxis, yaxis, zaxis]).T,
+                poses,
+                origin=points[0],
+                zthresh=0.01,
+            )
+
+            # Uncomment to see what the projection looks like in 2D
+            fig = plt.figure()
+            ax2 = fig.add_subplot(projection="3d")
+            ax2.set_xlabel("X position")
+            ax2.set_ylabel("Y position")
+            ax2.set_zlabel("Z position")
+
+            ax2.scatter(proj2d[:, 0], proj2d[:, 1], proj2d[:, 2])
+            # util.ax.scatter(proj2d[:, 0], proj2d[:, 1], proj2d[:, 2])
+            ax2d = plt.figure().subplots()
+            ax2d.scatter(proj2d[:, 1], proj2d[:, 0])
+
+            util.ax.scatter(drawn.x, drawn.y, drawn.z)
+
     plt.ioff()
+    util.ax.set_aspect("equal")
     plt.show()
 
 
@@ -279,7 +326,7 @@ def cli_main():
     if args.calibrate_file:
         with open(args.calibrate_file, "r") as infile:
             reader = csv.DictReader(infile, fieldnames=csvkeys)
-            calibrate_file(reader, not args.no_animate)
+            calibrate_file(reader, not args.no_animate, args.file)
     elif args.calibrate:
         with open("calibrate.csv", "w") as outfile:
             writer = csv.DictWriter(outfile, fieldnames=csvkeys)
