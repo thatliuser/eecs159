@@ -3,12 +3,15 @@ from collections import deque
 import struct
 import selectors
 import csv
+import logging
 from io import TextIOWrapper
 
 from .replay import RecordingRow, csvkeys
 from .source import DataSource
 from .plot import Plotter
 from .types import Position
+
+log = logging.getLogger(__name__)
 
 
 class SocketSource(DataSource):
@@ -32,7 +35,7 @@ class SocketSource(DataSource):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind((listen_addr, port))
         self.sock.setblocking(False)
-        print("Listening on port:", port)
+        log.info("Listening on port:", port)
 
         self.sel = selectors.DefaultSelector()
         self.sel.register(self.sock, selectors.EVENT_READ)
@@ -66,7 +69,7 @@ class SocketSource(DataSource):
                     }
                 )
 
-                # print(f'{timestamp}: Got new position ({position[0]}, {position[1]}, {position[2]})')
+                # log.debug(f'{timestamp}: Got new position ({position[0]}, {position[1]}, {position[2]})')
                 pos.append(position, timestamp)
             except socket.error:
                 # Done, exit

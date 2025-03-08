@@ -1,8 +1,10 @@
 from argparse import ArgumentParser
 from .plot import Plotter
+import logging
 
 
 def cli_main():
+    logging.basicConfig(level=logging.INFO)
     top = ArgumentParser(
         prog="realsense_cli", description="Plot RealSense tool position with Matplotlib"
     )
