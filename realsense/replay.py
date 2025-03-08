@@ -82,7 +82,8 @@ class FileSource(DataSource):
             time = float(row["time"])
             pos.append((x, y, z), time)
 
-            return True
+            # Don't update the plot if we're not animating
+            return self.animate
 
     def finalize(self):
         # No cleanup needed, really
