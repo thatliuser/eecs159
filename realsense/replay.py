@@ -6,24 +6,8 @@ from typing import TypedDict
 from collections import deque
 import matplotlib.pyplot as plt
 
-from . import util
 from .source import DataSource
-
-
-class RecordingRow(TypedDict):
-    sno: float
-    time: float
-    x: float
-    y: float
-    z: float
-    qx: float
-    qy: float
-    qz: float
-    qw: float
-    id: int
-
-
-csvkeys = list(RecordingRow.__annotations__.keys())
+from .types import RecordingRow, csvkeys
 
 
 class FileSource(DataSource):
@@ -65,10 +49,9 @@ class FileSource(DataSource):
                         float(row["z"]),
                     )
                     time = float(row["time"])
-                    if id == 2:
-                        util.pen.append((x, y, z), time)
-                    elif id == 1:
-                        util.board.append((x, y, z), time)
+                    self.pen.append((x, y, z), time)
+                    #elif id == 1:
+                    #    util.board.append((x, y, z), time)
 
                     added += 1
                 else:
@@ -91,7 +74,7 @@ class FileSource(DataSource):
             # id = int(row["id"])
             x, y, z = (float(row["x"]), float(row["y"]), float(row["z"]))
             time = float(row["time"])
-            util.pen.append((x, y, z), time)
+            self.pen.append((x, y, z), time)
 
             return True
 
@@ -135,7 +118,7 @@ def replay(reader: csv.DictReader, animate: bool):
     recstart = float(rows[1]["time"])
     start = datetime.now()
     if animate:
-        while not util.stop:
+        while not False:
             sleep(0.01)
 
             now = datetime.now()
@@ -149,10 +132,10 @@ def replay(reader: csv.DictReader, animate: bool):
                         id = int(row["id"])
                         x, y, z = (float(row["x"]), float(row["y"]), float(row["z"]))
                         time = float(row["time"])
-                        if id == 2:
-                            util.pen.append((x, y, z), time)
-                        elif id == 1:
-                            util.board.append((x, y, z), time)
+                        #if id == 2:
+                        #    util.pen.append((x, y, z), time)
+                        #elif id == 1:
+                        #    util.board.append((x, y, z), time)
 
                         added += 1
                     else:
@@ -161,9 +144,10 @@ def replay(reader: csv.DictReader, animate: bool):
                         break
 
                 if added > 0:
-                    util.update_plot()
+                    # util.update_plot()
+                    pass
 
-                util.fig.canvas.flush_events()
+                # util.fig.canvas.flush_events()
             except IndexError:
                 break
     else:
@@ -172,7 +156,8 @@ def replay(reader: csv.DictReader, animate: bool):
             x, y, z = (float(row["x"]), float(row["y"]), float(row["z"]))
             time = float(row["time"])
             if id == 2:
-                util.pen.append((x, y, z), time)
+                # util.pen.append((x, y, z), time)
+                pass
 
         # Calculate projection
         p1 = np.array([0.2180504947900772, 0.0801948681473732, 1.0031836032867432])
@@ -208,7 +193,7 @@ def replay(reader: csv.DictReader, animate: bool):
         print(f"Z (normal) reference vector: {zvec}")
 
         # Get all the positions
-        poses = np.column_stack((util.pen.x, util.pen.y, util.pen.z))
+        # poses = np.column_stack((util.pen.x, util.pen.y, util.pen.z))
         # Projection
         proj2d = project2d(np.array([xvec, yvec, zvec]), poses)
         # ax.scatter(proj[:, 0], proj[:, 1], proj[:, 2])
@@ -217,7 +202,7 @@ def replay(reader: csv.DictReader, animate: bool):
         ax2d = plt.figure().subplots()
         ax2d.scatter(proj2d[:, 0], proj2d[:, 1])
 
-        util.update_plot()
+        # util.update_plot()
 
     plt.ioff()
     plt.show()

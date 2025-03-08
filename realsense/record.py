@@ -6,19 +6,18 @@ import csv
 
 from .replay import RecordingRow, csvkeys
 from .source import DataSource
-from . import util
+from .types import Position
 from matplotlib.widgets import Button
-from matplotlib.axes import Axes
-import matplotlib.pyplot as plt
 
 
 class SocketSource(DataSource):
     sock: socket.socket
     sel: selectors.DefaultSelector
     rows: deque[RecordingRow]
+    # TODO: Separate writers for calibration so that replay mode can work better
     writer: csv.DictWriter
     calibrate: bool
-    calpos: util.Position
+    calpos: Position
     # Need to be members, otherwise these get GC'ed I think
     calbutton: Button
     clear: Button
@@ -34,13 +33,13 @@ class SocketSource(DataSource):
             print("Listening on port:", port)
 
             self.calibrate = False
-            clear_ax = util.fig.add_axes((0.7, 0.05, 0.1, 0.075))
+            clear_ax = self.fig.add_axes((0.7, 0.05, 0.1, 0.075))
             self.clear = Button(clear_ax, "Clear data")
             self.clear.on_clicked(self.on_clear)
-            cal_ax = util.fig.add_axes((0.81, 0.05, 0.1, 0.075))
+            cal_ax = self.fig.add_axes((0.81, 0.05, 0.1, 0.075))
             self.calbutton = Button(cal_ax, "Calibrate axes")
             self.calbutton.on_clicked(self.on_calbutton)
-            self.calpos = util.Position(300)
+            self.calpos = Position(300)
 
             self.sel = selectors.DefaultSelector()
             self.sel.register(self.sock, selectors.EVENT_READ)
@@ -48,8 +47,8 @@ class SocketSource(DataSource):
             self.rows = deque()
 
     def on_clear(self, event):
-        util.pen.clear()
-        util.update_plot()
+        self.pen.clear()
+        self.update_plot()
 
     def on_calbutton(self, event):
         self.calibrate = True
@@ -83,7 +82,7 @@ class SocketSource(DataSource):
 
                 # print(f'{timestamp}: Got new position ({position[0]}, {position[1]}, {position[2]})')
                 # TODO: Get a better way of determining this?
-                util.pen.append(position, timestamp)
+                self.pen.append(position, timestamp)
             except socket.error:
                 # Done, exit
                 # print(err)

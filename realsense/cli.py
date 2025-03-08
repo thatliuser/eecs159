@@ -3,7 +3,6 @@ import numpy as np
 import csv
 import matplotlib.pyplot as plt
 
-from . import util
 from .replay import csvkeys, FileSource
 from .record import SocketSource
 
@@ -13,7 +12,7 @@ def calibrate(writer: csv.DictWriter):
     import socket
     import selectors
     import struct
-    from .util import Position
+    from .types import Position
     from .record import RecordingRow
     from collections import deque
 
@@ -108,8 +107,8 @@ def calibrate_file(reader: csv.DictReader, animate: bool, drawing):
     from .record import RecordingRow
     from datetime import datetime
     from time import sleep
-    from . import util
-    from .util import Position
+    # from . import util
+    # from .util import Position
     from typing import Optional
 
     rows: deque[RecordingRow] = deque([row for row in reader])
@@ -262,11 +261,6 @@ def calibrate_file(reader: csv.DictReader, animate: bool, drawing):
     plt.show()
 
 
-def on_close(ev):
-    print("Exiting app")
-    util.stop = True
-
-
 def cli_main():
     parser = ArgumentParser(
         prog="rs_plotter", description="Plot RealSense tools with Matplotlib"
@@ -297,12 +291,6 @@ def cli_main():
     )
     args = parser.parse_args()
 
-    plt.ion()
-    util.ax.set_xlabel("X position")
-    util.ax.set_ylabel("Y position")
-    util.ax.set_zlabel("Z position")
-    util.ax.set_title("Position plot (uncalibrated)")
-
     # p1 = np.array([0.2180504947900772, 0.0801948681473732, 1.0031836032867432])
     # p2 = np.array([0.2777043581008911, 0.12020166218280792, 1.0866999626159668])
     # p3 = np.array([0.2262544482946396, 0.12422788143157959, 1.0066068172454834])
@@ -319,9 +307,6 @@ def cli_main():
 
     # util.ax.plot_surface(xx, yy, zz, alpha=0.2)
     # ax.scatter([point[0]], [point[1]], [point[2]])
-
-    plt.show()
-    util.fig.canvas.mpl_connect("close_event", on_close)
 
     if args.calibrate_file:
         with open(args.calibrate_file, "r") as infile:
