@@ -63,7 +63,7 @@ class DataSource(ABC):
     def finalize(self):
         pass
 
-    def calibrate_point(self) -> tuple[Path3DCollection, np.ndarray]:
+    def calibrate_point(self) -> np.ndarray:
         # 150 / 30fps is around 5 seconds
         pos = Position(300)
 
@@ -79,22 +79,49 @@ class DataSource(ABC):
         pt = np.array([np.mean(pos.x), np.mean(pos.y), np.mean(pos.z)])
         print(f"({pt[0]}, {pt[1]}, {pt[2]})")
 
-        # TODO: Hacky (?)
-        path = self.plot.ax.scatter(*pt, c="red", s=100)
+        # TODO: Hacky and doesn't get erased from the plot ever (?)
+        self.plot.ax.scatter(*pt, c="red", s=100)
 
-        return path, pt
+        return pt
+
+    def do_calibrate(self):
+        print("Calibrating")
+        self.plot.set_title("Position plot (calibrating)")
+
+        pts = [self.calibrate_point() for _ in range(4)]
+
+        x = pts[1] - pts[0]
+        y = pts[2] - pts[0]
+
+        # Calculate projection of Y onto X axis
+        xx = np.dot(x, x)
+        xy = np.dot(x, y)
+        projxy = (xy / xx) * x
+        # "Rectify" the Y axis by calculating the vector rejection of the Y axis from the X
+        y = y - projxy
+        # Get normal vector
+        z = np.cross(x, y)
+
+        self.plot.ax.quiver(*pts[0], *x, color="blue")
+        self.plot.ax.quiver(*pts[0], *y, color="green")
+        self.plot.ax.quiver(*pts[0], *z, color="purple")
+
+        print(x, y, z)
+
+        d = -np.dot(z, pts[0])
+        r = np.linspace(-1, 1, 10)  # Create a range of values for x and y (from 0 to 1)
+        xs, ys = np.meshgrid(r, r)
+        zs = (-z[0] * xs - z[1] * ys - d) * 1.0 / z[2]
+
+        self.plot.ax.plot_surface(xs, ys, zs, alpha=0.2)
+
+        print("Calibration done")
+        self.plot.set_title("Position plot (calibrated)")
 
     def run(self):
         try:
             if self.calibrate:
-                print("Calibrating")
-                self.plot.set_title("Position plot (calibrating)")
-
-                pts = [self.calibrate_point() for _ in range(4)]
-
-                print("Calibration done")
-                self.plot.set_title("Position plot (calibrated)")
-
+                self.do_calibrate()
             else:
                 while not self.stop:
                     if self.tick(self.pos):
