@@ -141,9 +141,9 @@ class Plotter:
             print(f"Got exception in data source: {e}")
             if self.should_exit:
                 return
-            else:
-                plt.ioff()
-                plt.show()
+
+        plt.ioff()
+        plt.show()
 
     @staticmethod
     def get_lims(arr: np.ndarray, lims: tuple[float, float]) -> tuple[float, float]:
