@@ -43,7 +43,7 @@ class Plotter:
     def on_clear(self, event):
         if self.data:
             self.data.on_clear()
-        self.update_plot()
+        self.update()
 
     def on_close(self, event):
         if self.data:
@@ -98,6 +98,7 @@ class Plotter:
         # Some initial data source setup depending on mode
         try:
             self.data = FileSource(self, calanim, self.calfile, True)
+            self.calibrating = True
             print("Info: Found calibration file")
         except FileNotFoundError:
             # Ok, whatever
@@ -142,6 +143,7 @@ class Plotter:
             if self.should_exit:
                 return
 
+        print("Done")
         plt.ioff()
         plt.show()
 
