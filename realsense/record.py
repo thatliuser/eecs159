@@ -67,15 +67,10 @@ class SocketSource(DataSource):
                 )
 
                 # print(f'{timestamp}: Got new position ({position[0]}, {position[1]}, {position[2]})')
-                # TODO: Get a better way of determining this?
                 pos.append(position, timestamp)
             except socket.error:
                 # Done, exit
-                # print(err)
                 break
-
-        # writer.writerows(rows)
-        # hl.set_cdata(np.array(t))
 
     def tick(self, pos: Position) -> bool:
         events = self.sel.select(timeout=0.01)

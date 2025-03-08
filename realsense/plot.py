@@ -29,15 +29,12 @@ class Plotter:
 
     # Preferences
     recanim: Optional[bool]
-
-    # State vars
     should_calibrate: bool
     calibrating: bool
     should_exit: bool
 
     def on_calibrate(self, event):
         self.should_calibrate = True
-        # TODO: IDK if this works
         self.data.on_close()
 
     def on_clear(self, event):
@@ -167,7 +164,6 @@ class Plotter:
         td = np.array(pos.t)
 
         path._offsets3d = (xd, yd, zd)
-        # hl.set_data_3d(xd, yd, zd)
         if not len(xd) == 0:
             self.xlim = Plotter.get_lims(xd, self.xlim)
             self.ax.set_xlim(*self.xlim)

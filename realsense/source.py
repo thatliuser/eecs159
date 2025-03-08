@@ -109,7 +109,8 @@ class DataSource(ABC):
         print(x, y, z)
 
         d = -np.dot(z, pts[0])
-        r = np.linspace(-1, 1, 10)  # Create a range of values for x and y (from 0 to 1)
+        # Create a range of values for x and y (from -1 to 1)
+        r = np.linspace(-1, 1, 10)
         xs, ys = np.meshgrid(r, r)
         zs = (-z[0] * xs - z[1] * ys - d) * 1.0 / z[2]
 
