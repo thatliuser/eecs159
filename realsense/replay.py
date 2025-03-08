@@ -6,7 +6,7 @@ from collections import deque
 import matplotlib.pyplot as plt
 
 from .source import DataSource
-from .types import RecordingRow, csvkeys
+from .types import RecordingRow, csvkeys, Position
 from .plot import Plotter
 
 
@@ -39,7 +39,7 @@ class FileSource(DataSource):
 
     # Process entries that should be processed in the current tick
     # Returns the number of entries processed
-    def chomp(self) -> int:
+    def chomp(self, pos: Position) -> int:
         added = 0
         now = datetime.now()
 
@@ -55,7 +55,7 @@ class FileSource(DataSource):
                         float(row["z"]),
                     )
                     time = float(row["time"])
-                    self.pos.append((x, y, z), time)
+                    pos.append((x, y, z), time)
                     # elif id == 1:
                     #    util.board.append((x, y, z), time)
 
@@ -69,18 +69,18 @@ class FileSource(DataSource):
 
         return added
 
-    def tick(self) -> bool:
+    def tick(self, pos: Position) -> bool:
         if self.done:
             raise IndexError("Recording finished")
         elif self.animate:
             sleep(0.01)
-            return self.chomp() > 0
+            return self.chomp(pos) > 0
         else:
             row = self.rows.popleft()
             # id = int(row["id"])
             x, y, z = (float(row["x"]), float(row["y"]), float(row["z"]))
             time = float(row["time"])
-            self.pos.append((x, y, z), time)
+            pos.append((x, y, z), time)
 
             return True
 

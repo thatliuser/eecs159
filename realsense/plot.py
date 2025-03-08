@@ -97,7 +97,8 @@ class Plotter:
 
         # Some initial data source setup depending on mode
         try:
-            self.data = FileSource(self, calanim, self.calfile)
+            self.data = FileSource(self, calanim, self.calfile, True)
+            print("Info: Found calibration file")
         except FileNotFoundError:
             # Ok, whatever
             print("Warning: File specified was not able to be opened for reading")

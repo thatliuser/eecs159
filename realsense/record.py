@@ -7,6 +7,7 @@ import csv
 from .replay import RecordingRow, csvkeys
 from .source import DataSource
 from .plot import Plotter
+from .types import Position
 
 
 class SocketSource(DataSource):
@@ -36,7 +37,7 @@ class SocketSource(DataSource):
 
             self.rows = deque()
 
-    def on_packet(self):
+    def on_packet(self, pos: Position):
         while True:
             try:
                 data, _ = self.sock.recvfrom(1024)
@@ -65,7 +66,7 @@ class SocketSource(DataSource):
 
                 # print(f'{timestamp}: Got new position ({position[0]}, {position[1]}, {position[2]})')
                 # TODO: Get a better way of determining this?
-                self.pos.append(position, timestamp)
+                pos.append(position, timestamp)
             except socket.error:
                 # Done, exit
                 # print(err)
@@ -74,10 +75,10 @@ class SocketSource(DataSource):
         # writer.writerows(rows)
         # hl.set_cdata(np.array(t))
 
-    def tick(self) -> bool:
+    def tick(self, pos: Position) -> bool:
         events = self.sel.select(timeout=0.01)
         for key, _ in events:
-            self.on_packet()
+            self.on_packet(pos)
 
         return not len(events) == 0
 

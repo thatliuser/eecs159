@@ -283,9 +283,10 @@ def cli_main():
         help="Specify a file with a calibration replay. If it doesn't exist, the calibration is skipped.",
     )
     top.add_argument(
-        "-nca",
-        "--no-calibrate-anim",
-        default=True,
+        "-ca",
+        "--calibrate-anim",
+        action="store_true",
+        default=False,
         help="Whether to replay the calibration file as an animation",
     )
     sub.add_parser("record", help="Record a tool in realtime")
@@ -321,7 +322,7 @@ def cli_main():
     plot = Plotter(
         args.calibrate_file,
         args.file,
-        not args.no_calibrate_anim,
+        args.calibrate_anim,
         anim,
     )
     plot.run()

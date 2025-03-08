@@ -48,7 +48,7 @@ class DataSource(ABC):
     # Can throw an exception to signify that the source
     # no longer has any data to offer.
     @abstractmethod
-    def tick(self) -> bool:
+    def tick(self, pos: Position) -> bool:
         pass
 
     @abstractmethod
@@ -63,7 +63,7 @@ class DataSource(ABC):
             if self.stop:
                 raise RuntimeError("Program stopped in middle of calibration")
 
-            if self.tick():
+            if self.tick(pos):
                 self.plot.update(pos, self.path)
 
             self.plot.flush()
@@ -89,10 +89,10 @@ class DataSource(ABC):
 
             else:
                 while not self.stop:
-                    if self.tick():
+                    if self.tick(self.pos):
                         self.plot.update(self.pos, self.path)
 
-                    self.plot.fig.canvas.flush_events()
+                    self.plot.flush()
 
             self.path.remove()
             self.finalize()
