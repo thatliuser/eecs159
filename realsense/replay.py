@@ -7,7 +7,7 @@ from collections import deque
 import matplotlib.pyplot as plt
 
 from .source import DataSource
-from .types import RecordingRow, csvkeys
+from .types import RecordingRow, csvkeys, Position
 
 
 class FileSource(DataSource):
@@ -31,9 +31,13 @@ class FileSource(DataSource):
             self.start = datetime.now()
             self.done = False
 
+            # Disable both buttons
+            self.calbutton.set_active(False)
+            self.clear.set_active(False)
+
     # Process entries that should be processed in the current tick
     # Returns the number of entries processed
-    def chomp(self) -> int:
+    def chomp(self, pos: Position) -> int:
         added = 0
         now = datetime.now()
 
@@ -42,15 +46,15 @@ class FileSource(DataSource):
                 row = self.rows.popleft()
                 rectime = float(row["time"])
                 if rectime - self.recstart < (now - self.start).total_seconds():
-                    id = int(row["id"])
+                    # id = int(row["id"])
                     x, y, z = (
                         float(row["x"]),
                         float(row["y"]),
                         float(row["z"]),
                     )
                     time = float(row["time"])
-                    self.pen.append((x, y, z), time)
-                    #elif id == 1:
+                    pos.append((x, y, z), time)
+                    # elif id == 1:
                     #    util.board.append((x, y, z), time)
 
                     added += 1
@@ -63,18 +67,18 @@ class FileSource(DataSource):
 
         return added
 
-    def tick(self) -> bool:
+    def tick(self, pos: Position) -> bool:
         if self.done:
             raise IndexError("Recording finished")
         elif self.animate:
             sleep(0.01)
-            return self.chomp() > 0
+            return self.chomp(pos) > 0
         else:
             row = self.rows.popleft()
             # id = int(row["id"])
             x, y, z = (float(row["x"]), float(row["y"]), float(row["z"]))
             time = float(row["time"])
-            self.pen.append((x, y, z), time)
+            pos.append((x, y, z), time)
 
             return True
 
@@ -132,9 +136,9 @@ def replay(reader: csv.DictReader, animate: bool):
                         id = int(row["id"])
                         x, y, z = (float(row["x"]), float(row["y"]), float(row["z"]))
                         time = float(row["time"])
-                        #if id == 2:
+                        # if id == 2:
                         #    util.pen.append((x, y, z), time)
-                        #elif id == 1:
+                        # elif id == 1:
                         #    util.board.append((x, y, z), time)
 
                         added += 1

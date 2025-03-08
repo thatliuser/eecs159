@@ -32,15 +32,6 @@ class SocketSource(DataSource):
             self.sock.setblocking(False)
             print("Listening on port:", port)
 
-            self.calibrate = False
-            clear_ax = self.fig.add_axes((0.7, 0.05, 0.1, 0.075))
-            self.clear = Button(clear_ax, "Clear data")
-            self.clear.on_clicked(self.on_clear)
-            cal_ax = self.fig.add_axes((0.81, 0.05, 0.1, 0.075))
-            self.calbutton = Button(cal_ax, "Calibrate axes")
-            self.calbutton.on_clicked(self.on_calbutton)
-            self.calpos = Position(300)
-
             self.sel = selectors.DefaultSelector()
             self.sel.register(self.sock, selectors.EVENT_READ)
 
@@ -53,7 +44,7 @@ class SocketSource(DataSource):
     def on_calbutton(self, event):
         self.calibrate = True
 
-    def on_packet(self):
+    def on_packet(self, pos: Position):
         while True:
             try:
                 data, _ = self.sock.recvfrom(1024)
@@ -82,7 +73,7 @@ class SocketSource(DataSource):
 
                 # print(f'{timestamp}: Got new position ({position[0]}, {position[1]}, {position[2]})')
                 # TODO: Get a better way of determining this?
-                self.pen.append(position, timestamp)
+                pos.append(position, timestamp)
             except socket.error:
                 # Done, exit
                 # print(err)
@@ -91,10 +82,10 @@ class SocketSource(DataSource):
         # writer.writerows(rows)
         # hl.set_cdata(np.array(t))
 
-    def tick(self) -> bool:
+    def tick(self, pos: Position) -> bool:
         events = self.sel.select(timeout=0.01)
         for key, _ in events:
-            self.on_packet()
+            self.on_packet(pos)
 
         return not len(events) == 0
 
