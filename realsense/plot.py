@@ -239,7 +239,6 @@ class Plotter:
         # This will error if the basis doesn't exist but this should
         # only be called when we already have a projection setup
         basis = np.array(list(self.proj))
-        print(basis)
         projs = []
         for pt in pts:
             proj = np.dot(basis, np.array([pt - self.origin]).T)
@@ -283,6 +282,7 @@ class Plotter:
         if self.path2 is not None:
             pts = np.column_stack((pos.x, pos.y, pos.z))
             projs = self.change_basis(pts)
+            print(projs)
 
             self.path2.set_offsets([projs[:, 0], projs[:, 1]])
 

@@ -70,14 +70,24 @@ class FileSource(DataSource):
         elif self.animate:
             sleep(0.01)
             return self.chomp(pos) > 0
-        else:
+        elif self.calibrate:
             row = self.rows.popleft()
             x, y, z = (float(row["x"]), float(row["y"]), float(row["z"]))
             time = float(row["time"])
             pos.append((x, y, z), time)
 
             # Don't update the plot if we're not animating
-            return self.animate
+            return False
+        else:
+            for row in self.rows:
+                x, y, z = (float(row["x"]), float(row["y"]), float(row["z"]))
+                time = float(row["time"])
+                pos.append((x, y, z), time)
+
+            # One tick processes every point
+            self.done = True
+
+            return True
 
     def finalize(self):
         # No cleanup needed, really
