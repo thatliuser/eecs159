@@ -6,132 +6,56 @@ from matplotlib.widgets import Button
 from mpl_toolkits.mplot3d.axes3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Path3DCollection
 import numpy as np
-from typing import Optional
 
 from .types import Position
 
 
 class DataSource(ABC):
     # Data
-    pen: Position
-
-    # Plot stuff
-    fig: Figure
-    ax: Axes3D
-    sc: Path3DCollection
-    xlim: tuple[float, float]
-    ylim: tuple[float, float]
-    zlim: tuple[float, float]
+    pos: Position
+    path: Path3DCollection
+    plot: "Plotter"
 
     # Stop bool
     stop: bool
     calibrate: bool
 
-    # Buttons
-    calbutton: Button
-    clear: Button
+    def __init__(self, plot: "Plotter", calibrate: bool = False):
+        # Plot
+        self.plot = plot
 
-    def on_close(self, event):
-        print("Exiting app")
-        self.stop = True
-
-    def on_calbutton(self, event):
-        self.calibrate = True
-
-    def on_clear(self, event):
-        self.pen.clear()
-        self.update_plot()
-
-    def __init__(self):
+        # State vars
         self.stop = False
-        self.calibrate = False
+        self.calibrate = calibrate
 
-        # Data and bounds
-        self.xlim = (-0.5, 0.5)
-        self.ylim = (-0.5, 0.5)
-        self.zlim = (-0.5, 0.5)
-        self.pen = Position(5000)
-
-        # Setup plot
-        plt.ion()
-        self.fig = plt.figure()
-        self.fig.canvas.mpl_connect("close_event", self.on_close)
-
-        # Axes
-        self.ax = self.fig.add_subplot(projection="3d")
-        self.ax.set_xlabel("X position")
-        self.ax.set_ylabel("Y position")
-        self.ax.set_zlabel("Z position")
-        self.ax.set_title("Position plot (uncalibrated)")
-
-        clear_ax = self.fig.add_axes((0.7, 0.05, 0.1, 0.075))
-        self.clear = Button(clear_ax, "Clear data")
-        self.clear.on_clicked(self.on_clear)
-        cal_ax = self.fig.add_axes((0.81, 0.05, 0.1, 0.075))
-        self.calbutton = Button(cal_ax, "Calibrate axes")
-        self.calbutton.on_clicked(self.on_calbutton)
+        # Set the title
+        self.plot.set_title("Position plot (uncalibrated)")
 
         # Scatterplot
-        self.sc = self.ax.scatter(self.pen.x, self.pen.y, self.pen.z, s=50)
+        self.pos = Position(5000)
 
-    @staticmethod
-    def get_lims(arr: np.ndarray, lims: tuple[float, float]) -> tuple[float, float]:
-        min, max = lims
-        arrmax = np.max(arr)
-        arrmin = np.min(arr)
-        if arrmax > max:
-            max = arrmax
-        if arrmin < min:
-            min = arrmin
-        return (min, max)
+        alpha = 0.1 if self.calibrate else 1.0
+        self.path = self.plot.ax.scatter(
+            self.pos.x, self.pos.y, self.pos.z, s=50, alpha=alpha
+        )
 
-    def update_plot(
-        self, pos: Optional[Position] = None, path: Optional[Path3DCollection] = None
-    ):
-        pos = self.pen if pos is None else pos
-
-        xd = np.array(pos.x)
-        yd = np.array(pos.y)
-        zd = np.array(pos.z)
-        td = np.array(pos.t)
-
-        path = self.sc if path is None else path
-
-        path._offsets3d = (xd, yd, zd)
-        # hl.set_data_3d(xd, yd, zd)
-        if not len(xd) == 0:
-            self.xlim = DataSource.get_lims(xd, self.xlim)
-            self.ax.set_xlim(*self.xlim)
-        if not len(yd) == 0:
-            self.ylim = DataSource.get_lims(yd, self.ylim)
-            self.ax.set_ylim(*self.ylim)
-        if not len(zd) == 0:
-            self.zlim = DataSource.get_lims(zd, self.zlim)
-            self.ax.set_zlim(*self.zlim)
-
-        if len(td) > 1:
-            norm_td = (td - td.min()) / (td.max() - td.min())
-        else:
-            norm_td = np.zeros_like(td)
-
-        colors = plt.get_cmap("viridis_r")(norm_td)
-        path.set_color(colors)
-
-        self.fig.canvas.draw_idle()
+    def on_close(self):
+        print("Closing DataSource")
+        self.stop = True
 
     # Return value signifies whether to update the plot
     # before flushing events.
     # Can throw an exception to signify that the source
     # no longer has any data to offer.
     @abstractmethod
-    def tick(self, pos: Position) -> bool:
+    def tick(self) -> bool:
         pass
 
     @abstractmethod
     def finalize(self):
         pass
 
-    def calibrate_point(self, path: Path3DCollection) -> np.ndarray:
+    def calibrate_point(self) -> tuple[Path3DCollection, np.ndarray]:
         # 150 / 30fps is around 5 seconds
         pos = Position(300)
 
@@ -139,49 +63,47 @@ class DataSource(ABC):
             if self.stop:
                 raise RuntimeError("Program stopped in middle of calibration")
 
-            if self.tick(pos):
-                self.update_plot(pos, path)
+            if self.tick():
+                self.plot.update(pos, self.path)
 
-            self.fig.canvas.flush_events()
+            self.plot.flush()
 
         pt = np.array([np.mean(pos.x), np.mean(pos.y), np.mean(pos.z)])
         print(f"({pt[0]}, {pt[1]}, {pt[2]})")
 
-        self.ax.scatter(*pt, c="red", s=100)
+        # TODO: Hacky (?)
+        path = self.plot.ax.scatter(*pt, c="red", s=100)
 
-        return pt
-
-    def do_calibrate(self):
-        print("Calibrating")
-        self.ax.set_title("Position plot (calibrating)")
-        path = self.ax.scatter([], [], [], s=50, alpha=0.1)
-        # TODO: Do something with this
-        pts = [self.calibrate_point(path) for _ in range(4)]
-
-        path.remove()
-
-        self.calibrate = False
-
-        print("Calibration done")
-        self.ax.set_title("Position plot (calibrated)")
+        return path, pt
 
     def run(self):
         try:
-            while not self.stop:
-                if self.calibrate:
-                    self.do_calibrate()
-                elif self.tick(self.pen):
-                    self.update_plot()
+            if self.calibrate:
+                print("Calibrating")
+                self.plot.set_title("Position plot (calibrating)")
 
-                self.fig.canvas.flush_events()
+                pts = [self.calibrate_point() for _ in range(4)]
+
+                print("Calibration done")
+                self.plot.set_title("Position plot (calibrated)")
+
+            else:
+                while not self.stop:
+                    if self.tick():
+                        self.plot.update(self.pos, self.path)
+
+                    self.plot.fig.canvas.flush_events()
+
+            self.path.remove()
+            self.finalize()
 
         except Exception as e:
             print(f"Got exception in run loop: {e}")
+            self.path.remove()
             self.finalize()
-            # Only exit if the user has requested to exit
-            if self.stop:
-                return
-            else:
-                # Show the now non-interactive graph
-                plt.ioff()
-                plt.show()
+
+            raise e
+
+
+# TODO: IDK if this does anything
+from .plot import Plotter

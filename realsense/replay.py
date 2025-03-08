@@ -2,12 +2,12 @@ import csv
 import numpy as np
 from datetime import datetime
 from time import sleep
-from typing import TypedDict
 from collections import deque
 import matplotlib.pyplot as plt
 
 from .source import DataSource
-from .types import RecordingRow, csvkeys, Position
+from .types import RecordingRow, csvkeys
+from .plot import Plotter
 
 
 class FileSource(DataSource):
@@ -17,8 +17,14 @@ class FileSource(DataSource):
     start: datetime
     done: bool
 
-    def __init__(self, file: str, animate: bool):
-        super().__init__()
+    def __init__(
+        self,
+        plot: Plotter,
+        animate: bool,
+        file: str,
+        calibrate: bool = False,
+    ):
+        super().__init__(plot, calibrate)
         with open(file, "r") as input:
             reader = csv.DictReader(input, fieldnames=csvkeys)
             self.rows = deque([row for row in reader])
@@ -31,13 +37,9 @@ class FileSource(DataSource):
             self.start = datetime.now()
             self.done = False
 
-            # Disable both buttons
-            self.calbutton.set_active(False)
-            self.clear.set_active(False)
-
     # Process entries that should be processed in the current tick
     # Returns the number of entries processed
-    def chomp(self, pos: Position) -> int:
+    def chomp(self) -> int:
         added = 0
         now = datetime.now()
 
@@ -53,7 +55,7 @@ class FileSource(DataSource):
                         float(row["z"]),
                     )
                     time = float(row["time"])
-                    pos.append((x, y, z), time)
+                    self.pos.append((x, y, z), time)
                     # elif id == 1:
                     #    util.board.append((x, y, z), time)
 
@@ -67,18 +69,18 @@ class FileSource(DataSource):
 
         return added
 
-    def tick(self, pos: Position) -> bool:
+    def tick(self) -> bool:
         if self.done:
             raise IndexError("Recording finished")
         elif self.animate:
             sleep(0.01)
-            return self.chomp(pos) > 0
+            return self.chomp() > 0
         else:
             row = self.rows.popleft()
             # id = int(row["id"])
             x, y, z = (float(row["x"]), float(row["y"]), float(row["z"]))
             time = float(row["time"])
-            pos.append((x, y, z), time)
+            self.pos.append((x, y, z), time)
 
             return True
 

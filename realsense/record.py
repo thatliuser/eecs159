@@ -6,24 +6,23 @@ import csv
 
 from .replay import RecordingRow, csvkeys
 from .source import DataSource
-from .types import Position
-from matplotlib.widgets import Button
+from .plot import Plotter
 
 
 class SocketSource(DataSource):
     sock: socket.socket
     sel: selectors.DefaultSelector
     rows: deque[RecordingRow]
-    # TODO: Separate writers for calibration so that replay mode can work better
     writer: csv.DictWriter
-    calibrate: bool
-    calpos: Position
-    # Need to be members, otherwise these get GC'ed I think
-    calbutton: Button
-    clear: Button
 
-    def __init__(self, file: str = "recording.csv", port: int = 12345):
-        super().__init__()
+    def __init__(
+        self,
+        plot: Plotter,
+        file: str,
+        calibrate: bool = False,
+        port: int = 12345,
+    ):
+        super().__init__(plot, calibrate)
         with open(file, "w") as output:
             self.writer = csv.DictWriter(output, fieldnames=csvkeys)
             listen_addr = "0.0.0.0"
@@ -37,14 +36,7 @@ class SocketSource(DataSource):
 
             self.rows = deque()
 
-    def on_clear(self, event):
-        self.pen.clear()
-        self.update_plot()
-
-    def on_calbutton(self, event):
-        self.calibrate = True
-
-    def on_packet(self, pos: Position):
+    def on_packet(self):
         while True:
             try:
                 data, _ = self.sock.recvfrom(1024)
@@ -73,7 +65,7 @@ class SocketSource(DataSource):
 
                 # print(f'{timestamp}: Got new position ({position[0]}, {position[1]}, {position[2]})')
                 # TODO: Get a better way of determining this?
-                pos.append(position, timestamp)
+                self.pos.append(position, timestamp)
             except socket.error:
                 # Done, exit
                 # print(err)
@@ -82,12 +74,14 @@ class SocketSource(DataSource):
         # writer.writerows(rows)
         # hl.set_cdata(np.array(t))
 
-    def tick(self, pos: Position) -> bool:
+    def tick(self) -> bool:
         events = self.sel.select(timeout=0.01)
         for key, _ in events:
-            self.on_packet(pos)
+            self.on_packet()
 
         return not len(events) == 0
 
     def finalize(self):
         self.writer.writerows(self.rows)
+        self.sel.unregister(self.sock)
+        self.sock.close()

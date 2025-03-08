@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 
 from .replay import csvkeys, FileSource
 from .record import SocketSource
+from .plot import Plotter
 
 
 # TODO: Move this to own file (calibrate, on_packet)
@@ -107,6 +108,7 @@ def calibrate_file(reader: csv.DictReader, animate: bool, drawing):
     from .record import RecordingRow
     from datetime import datetime
     from time import sleep
+
     # from . import util
     # from .util import Position
     from typing import Optional
@@ -262,34 +264,40 @@ def calibrate_file(reader: csv.DictReader, animate: bool, drawing):
 
 
 def cli_main():
-    parser = ArgumentParser(
-        prog="rs_plotter", description="Plot RealSense tools with Matplotlib"
+    top = ArgumentParser(
+        prog="realsense_cli", description="Plot RealSense tool position with Matplotlib"
     )
-    parser.add_argument(
+    sub = top.add_subparsers(
+        required=True, help="Which mode to use (record or replay)."
+    )
+    top.add_argument(
         "-f",
         "--file",
-        help="Specify a file to read data from rather than a UDP socket.",
+        help="Specify a file to record to or replay from.",
+        default="recording.csv",
     )
-    parser.add_argument(
+    top.add_argument(
+        "-cf",
+        "--calibrate-file",
+        default="calibrate.csv",
+        help="Specify a file with a calibration replay. If it doesn't exist, the calibration is skipped.",
+    )
+    top.add_argument(
+        "-nca",
+        "--no-calibrate-anim",
+        default=True,
+        help="Whether to replay the calibration file as an animation",
+    )
+    sub.add_parser("record", help="Record a tool in realtime")
+    rep = sub.add_parser("replay", help="Replay a tool from a file")
+    rep.add_argument(
         "-na",
-        "--no-animate",
+        "--no-anim",
         action="store_true",
         default=False,
         help="In replay mode, whether or not to animate the sequence.",
     )
-    parser.add_argument(
-        "-c",
-        "--calibrate",
-        action="store_true",
-        default=False,
-        help="Detect the plane of writing with live calibration.",
-    )
-    parser.add_argument(
-        "-cf",
-        "--calibrate-file",
-        help="Specify a file with a calibration recording to calibrate.",
-    )
-    args = parser.parse_args()
+    args = top.parse_args()
 
     # p1 = np.array([0.2180504947900772, 0.0801948681473732, 1.0031836032867432])
     # p2 = np.array([0.2777043581008911, 0.12020166218280792, 1.0866999626159668])
@@ -308,21 +316,12 @@ def cli_main():
     # util.ax.plot_surface(xx, yy, zz, alpha=0.2)
     # ax.scatter([point[0]], [point[1]], [point[2]])
 
-    if args.calibrate_file:
-        with open(args.calibrate_file, "r") as infile:
-            reader = csv.DictReader(infile, fieldnames=csvkeys)
-            calibrate_file(reader, not args.no_animate, args.file)
-    elif args.calibrate:
-        with open("calibrate.csv", "w") as outfile:
-            writer = csv.DictWriter(outfile, fieldnames=csvkeys)
-            writer.writeheader()
-            calibrate(writer)
-    elif args.file:
-        src = FileSource(args.file, not args.no_animate)
-        src.run()
-        # with open(args.file, "r") as infile:
-        #    reader = csv.DictReader(infile, fieldnames=csvkeys)
-        #    replay(reader, not args.no_animate)
-    else:
-        src = SocketSource()
-        src.run()
+    anim = not args.no_anim if hasattr(args, "no_anim") else None
+
+    plot = Plotter(
+        args.calibrate_file,
+        args.file,
+        not args.no_calibrate_anim,
+        anim,
+    )
+    plot.run()
