@@ -43,7 +43,6 @@ class Plotter:
     def on_clear(self, event):
         if self.data:
             self.data.on_clear()
-        self.update()
 
     def on_close(self, event):
         if self.data:

@@ -5,6 +5,10 @@ from matplotlib.figure import Figure
 from matplotlib.widgets import Button
 from mpl_toolkits.mplot3d.axes3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Path3DCollection
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .plot import Plotter
 import numpy as np
 
 from .types import Position
@@ -42,6 +46,10 @@ class DataSource(ABC):
     def on_close(self):
         print("Closing DataSource")
         self.stop = True
+
+    def on_clear(self):
+        self.pos.clear()
+        self.plot.update(self.pos, self.path)
 
     # Return value signifies whether to update the plot
     # before flushing events.
@@ -103,7 +111,3 @@ class DataSource(ABC):
             self.finalize()
 
             raise e
-
-
-# TODO: IDK if this does anything
-from .plot import Plotter

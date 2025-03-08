@@ -3,6 +3,7 @@ from collections import deque
 import struct
 import selectors
 import csv
+from io import TextIOWrapper
 
 from .replay import RecordingRow, csvkeys
 from .source import DataSource
@@ -14,6 +15,7 @@ class SocketSource(DataSource):
     sock: socket.socket
     sel: selectors.DefaultSelector
     rows: deque[RecordingRow]
+    outfile: TextIOWrapper
     writer: csv.DictWriter
 
     def __init__(
@@ -24,18 +26,18 @@ class SocketSource(DataSource):
         port: int = 12345,
     ):
         super().__init__(plot, calibrate)
-        with open(file, "w") as output:
-            self.writer = csv.DictWriter(output, fieldnames=csvkeys)
-            listen_addr = "0.0.0.0"
-            self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            self.sock.bind((listen_addr, port))
-            self.sock.setblocking(False)
-            print("Listening on port:", port)
+        self.outfile = open(file, "w")
+        self.writer = csv.DictWriter(self.outfile, fieldnames=csvkeys)
+        listen_addr = "0.0.0.0"
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.bind((listen_addr, port))
+        self.sock.setblocking(False)
+        print("Listening on port:", port)
 
-            self.sel = selectors.DefaultSelector()
-            self.sel.register(self.sock, selectors.EVENT_READ)
+        self.sel = selectors.DefaultSelector()
+        self.sel.register(self.sock, selectors.EVENT_READ)
 
-            self.rows = deque()
+        self.rows = deque()
 
     def on_packet(self, pos: Position):
         while True:
@@ -86,3 +88,4 @@ class SocketSource(DataSource):
         self.writer.writerows(self.rows)
         self.sel.unregister(self.sock)
         self.sock.close()
+        self.outfile.close()
