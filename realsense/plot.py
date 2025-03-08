@@ -98,8 +98,8 @@ class Plotter:
         gs = self.fig.add_gridspec(1, 2)
         self.ax2 = self.fig.add_subplot(gs[0, 1])
         self.path2 = self.ax2.scatter([], [])
-        self.ax2.set_xlim(0, 1)
-        self.ax2.set_ylim(0, 1)
+        self.ax2.set_xlim(-1, 1)
+        self.ax2.set_ylim(-1, 1)
 
         # Resize existing 3D plot
         self.ax.set_subplotspec(gs[0, 0])
@@ -238,7 +238,8 @@ class Plotter:
     def change_basis(self, pts: np.ndarray, zthresh: float = 0.1) -> np.ndarray:
         # This will error if the basis doesn't exist but this should
         # only be called when we already have a projection setup
-        basis = np.array(list(self.proj))
+        x, y, z = self.proj
+        basis = np.array([x, y, z])
         projs = []
         for pt in pts:
             proj = np.dot(basis, np.array([pt - self.origin]).T)
@@ -282,9 +283,8 @@ class Plotter:
         if self.path2 is not None:
             pts = np.column_stack((pos.x, pos.y, pos.z))
             projs = self.change_basis(pts)
-            print(projs)
 
-            self.path2.set_offsets([projs[:, 0], projs[:, 1]])
+            self.path2.set_offsets(projs)
 
         self.fig.canvas.draw_idle()
 
