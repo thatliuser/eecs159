@@ -153,6 +153,7 @@ class DataSource(ABC):
 
     def do_calibrate(self):
         print("Calibrating")
+        self.ax.set_title("Position plot (calibrating)")
         path = self.ax.scatter([], [], [], s=50, alpha=0.1)
         # TODO: Do something with this
         pts = [self.calibrate_point(path) for _ in range(4)]
@@ -160,7 +161,9 @@ class DataSource(ABC):
         path.remove()
 
         self.calibrate = False
+
         print("Calibration done")
+        self.ax.set_title("Position plot (calibrated)")
 
     def run(self):
         try:
