@@ -1,6 +1,9 @@
 # ZotPen
 A cheap OCR tool for classrooms
 
+## Developer documentation
+See [here.](./CONTRIBUTING.md)
+
 ## Requirements
 If you actually want to record data, you need the following:
 - The RealSense tool tracker from [here](https://github.com/stytim/RealSense-ToolTracker/) for the realsense
