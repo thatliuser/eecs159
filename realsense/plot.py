@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import logging
 import traceback
+import uinput
 
 log = logging.getLogger(__name__)
 
@@ -36,6 +37,9 @@ class ProjPlotter:
 
     basis: tuple[np.ndarray, np.ndarray, np.ndarray]
     origin: np.ndarray
+    dev: uinput.Device
+
+    last_pos: Optional[tuple[float, float]]
 
     def __init__(self, plot: "Plotter", pts: list[np.ndarray]):
         self.plot = plot
@@ -81,6 +85,13 @@ class ProjPlotter:
         # Resize existing 3D plot
         self.plot.ax.set_subplotspec(gs[0, 0])
 
+        # TODO: Abstract this in a module otherwise this only will work on Linux
+        self.dev = uinput.Device((uinput.REL_X, uinput.REL_Y, uinput.BTN_LEFT))
+        self.last_pos = None
+
+    def finalize(self):
+        self.dev.destroy()
+
     # Performs a change of basis on a point given a specific basis and origin.
     def change_basis(self, pts: np.ndarray) -> np.ndarray:
         # This will error if the basis doesn't exist but this should
@@ -108,6 +119,22 @@ class ProjPlotter:
             self.ax.set_ylim(*self.ylim)
 
             self.path.set_offsets(flip)
+
+            x, y = flip[-1]
+            x = int(x * 1920)
+            y = int(y * 1080)
+
+            if self.last_pos is None:
+                # Go to the corner of the screen so we have "absolute positioning"
+                self.dev.emit(uinput.REL_X, -int(1e10))
+                self.dev.emit(uinput.REL_Y, -int(1e10))
+            else:
+                lx, ly = self.last_pos
+                self.dev.emit(uinput.REL_X, x - lx)
+                self.dev.emit(uinput.REL_Y, y - ly)
+
+            self.last_pos = (x, y)
+            print(self.last_pos)
 
 
 class Plotter:
@@ -272,6 +299,9 @@ class Plotter:
         log.info("All data sources have exited, turning off interactive graph")
         plt.ioff()
         plt.show()
+
+        if self.proj is not None:
+            self.proj.finalize()
 
     def set_title(self, title: str):
         self.ax.set_title(title)
