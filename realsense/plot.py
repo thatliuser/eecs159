@@ -16,24 +16,100 @@ import traceback
 log = logging.getLogger(__name__)
 
 
+class ProjPlotter:
+    plot: "Plotter"
+    ax: Axes
+    path: PathCollection
+    xlim: tuple[float, float]
+    ylim: tuple[float, float]
+
+    basis: tuple[np.ndarray, np.ndarray, np.ndarray]
+    origin: np.ndarray
+
+    def __init__(self, plot: "Plotter", pts: list[np.ndarray]):
+        self.plot = plot
+        self.xlim = (0, 0.1)
+        self.ylim = (0, 0.1)
+
+        x = pts[1] - pts[0]
+        y = pts[2] - pts[0]
+
+        # Calculate projection of Y onto X axis
+        xx = np.dot(x, x)
+        xy = np.dot(x, y)
+        projxy = (xy / xx) * x
+        # "Rectify" the Y axis by calculating the vector rejection of the Y axis from the X
+        y = y - projxy
+        # Get normal vector
+        z = np.cross(x, y)
+
+        log.debug(f"Got x vector {x}, y vector {y}, z vector {z}")
+        self.basis = (x, y, z)
+        self.origin = pts[0]
+
+        # TODO: Add these to some state variable so they can be removed / toggled
+        self.plot.ax.quiver(*pts[0], *x, color="blue")
+        self.plot.ax.quiver(*pts[0], *y, color="green")
+        self.plot.ax.quiver(*pts[0], *z, color="purple")
+
+        d = -np.dot(z, pts[0])
+        # Create a range of values for x and y (from -1 to 1)
+        r = np.linspace(-1, 1, 10)
+        xs, ys = np.meshgrid(r, r)
+        zs = (-z[0] * xs - z[1] * ys - d) * 1.0 / z[2]
+
+        self.plot.ax.plot_surface(xs, ys, zs, alpha=0.2)
+
+        # Add new 2D plot alongside 3D plot
+        gs = self.plot.fig.add_gridspec(1, 2)
+        self.ax = self.plot.fig.add_subplot(gs[0, 1])
+        self.path = self.ax.scatter([], [])
+        self.ax.set_xlim(*self.xlim)
+        self.ax.set_ylim(*self.ylim)
+
+        # Resize existing 3D plot
+        self.plot.ax.set_subplotspec(gs[0, 0])
+
+    # Performs a change of basis on a point given a specific basis and origin.
+    def change_basis(self, pts: np.ndarray) -> np.ndarray:
+        # This will error if the basis doesn't exist but this should
+        # only be called when we already have a projection setup
+        x, y, z = self.basis
+        basis = np.array([x, y, z])
+        projs = []
+        for pt in pts:
+            opt = np.array([pt - self.origin]).T
+            proj = np.matmul(basis, opt).T[0]
+            projs.append(proj)
+
+        return np.array(projs) if len(projs) > 0 else np.empty((0, 3))
+
+    def update(self, pos: Position):
+        pts = np.column_stack((pos.x, pos.y, pos.z))
+        projs = self.change_basis(pts)
+
+        if not len(projs) == 0:
+            # Swap X and Y axes because IDK
+            flip = projs[:, [1, 0]]
+            self.xlim = Plotter.get_lims(projs[:, 1], self.xlim)
+            self.ax.set_xlim(*self.xlim)
+            self.ylim = Plotter.get_lims(projs[:, 0], self.ylim)
+            self.ax.set_ylim(*self.ylim)
+
+            self.path.set_offsets(flip)
+
+
 class Plotter:
     fig: Figure
     ax: Axes3D
-    ax2: Optional[Axes]
     # For current data source
     path: Path3DCollection
-    # Only available after calibration
-    path2: Optional[PathCollection]
     xlim: tuple[float, float]
     ylim: tuple[float, float]
     zlim: tuple[float, float]
 
-    xlim2: tuple[float, float]
-    ylim2: tuple[float, float]
-
     # Projection vectors once calibrated
-    proj: Optional[tuple[np.ndarray, np.ndarray, np.ndarray]]
-    origin: Optional[np.ndarray]
+    proj: Optional[ProjPlotter]
 
     data: Optional[DataSource]
 
@@ -77,10 +153,6 @@ class Plotter:
         self.ax.set_zlabel("Z position")
 
         # This will be set up after we calibrate
-        self.ax2 = None
-        self.path2 = None
-        self.proj = None
-        self.origin = None
 
         # Setup buttons
         clear_ax = self.fig.add_axes((0.7, 0.05, 0.1, 0.075))
@@ -98,9 +170,6 @@ class Plotter:
         self.xlim = (-0.5, 0.5)
         self.ylim = (-0.5, 0.5)
         self.zlim = (-0.5, 0.5)
-
-        self.xlim2 = (0, 0.1)
-        self.ylim2 = (0, 0.1)
 
         self.should_calibrate = False
         self.calibrating = False
@@ -143,45 +212,7 @@ class Plotter:
         self.should_exit = True
 
     def calibrate_to(self, pts: list[np.ndarray]):
-        x = pts[1] - pts[0]
-        y = pts[2] - pts[0]
-
-        # Calculate projection of Y onto X axis
-        xx = np.dot(x, x)
-        xy = np.dot(x, y)
-        projxy = (xy / xx) * x
-        # "Rectify" the Y axis by calculating the vector rejection of the Y axis from the X
-        y = y - projxy
-        # Get normal vector
-        z = np.cross(x, y)
-
-        log.debug(f"Got x vector {x}, y vector {y}, z vector {z}")
-        self.proj = (x, y, z)
-        self.origin = pts[0]
-
-        # TODO: Add these to some state variable so they can be removed / toggled
-        self.ax.quiver(*pts[0], *x, color="blue")
-        self.ax.quiver(*pts[0], *y, color="green")
-        self.ax.quiver(*pts[0], *z, color="purple")
-
-        d = -np.dot(z, pts[0])
-        # Create a range of values for x and y (from -1 to 1)
-        r = np.linspace(-1, 1, 10)
-        xs, ys = np.meshgrid(r, r)
-        zs = (-z[0] * xs - z[1] * ys - d) * 1.0 / z[2]
-
-        self.ax.plot_surface(xs, ys, zs, alpha=0.2)
-
-        # Add new 2D plot alongside 3D plot
-        # TODO: This should really be set within the plotter
-        gs = self.fig.add_gridspec(1, 2)
-        self.ax2 = self.fig.add_subplot(gs[0, 1])
-        self.path2 = self.ax2.scatter([], [])
-        self.ax2.set_xlim(*self.xlim2)
-        self.ax2.set_ylim(*self.ylim2)
-
-        # Resize existing 3D plot
-        self.ax.set_subplotspec(gs[0, 0])
+        self.proj = ProjPlotter(self, pts)
 
     def reset_path(self, calibrate: bool):
         log.debug("Resetting path collection")
@@ -242,21 +273,6 @@ class Plotter:
             min = arrmin
         return (min, max)
 
-    # Performs a change of basis on a point given a specific basis and origin.
-    def change_basis(self, pts: np.ndarray, zthresh: float = 0.1) -> np.ndarray:
-        # This will error if the basis doesn't exist but this should
-        # only be called when we already have a projection setup
-        x, y, z = self.proj
-        basis = np.array([x, y, z])
-        projs = []
-        for pt in pts:
-            opt = np.array([pt - self.origin]).T
-            proj = np.matmul(basis, opt).T[0]
-            if abs(proj[2]) < zthresh:
-                projs.append(proj[:2])
-
-        return np.array(projs) if len(projs) > 0 else np.empty((0, 2))
-
     def set_title(self, title: str):
         self.ax.set_title(title)
 
@@ -289,20 +305,8 @@ class Plotter:
         colors = plt.get_cmap("viridis_r")(norm_td)
         self.path.set_color(colors)
 
-        if self.path2 is not None:
-            pts = np.column_stack((pos.x, pos.y, pos.z))
-            projs = self.change_basis(pts, 0.001)
-
-            # Swap X and Y axes because IDK
-
-            if not len(projs) == 0:
-                flip = projs[:, [1, 0]]
-                self.xlim2 = Plotter.get_lims(projs[:, 1], self.xlim2)
-                self.ax2.set_xlim(*self.xlim2)
-                self.ylim2 = Plotter.get_lims(projs[:, 0], self.ylim2)
-                self.ax2.set_ylim(*self.ylim2)
-
-                self.path2.set_offsets(flip)
+        if self.proj is not None:
+            self.proj.update(pos)
 
         self.fig.canvas.draw_idle()
 
