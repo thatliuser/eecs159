@@ -11,6 +11,7 @@ from typing import Optional
 import matplotlib.pyplot as plt
 import numpy as np
 import logging
+import traceback
 
 log = logging.getLogger(__name__)
 
@@ -26,6 +27,9 @@ class Plotter:
     xlim: tuple[float, float]
     ylim: tuple[float, float]
     zlim: tuple[float, float]
+
+    xlim2: tuple[float, float]
+    ylim2: tuple[float, float]
 
     # Projection vectors once calibrated
     proj: Optional[tuple[np.ndarray, np.ndarray, np.ndarray]]
@@ -48,6 +52,81 @@ class Plotter:
     should_calibrate: bool
     calibrating: bool
     should_exit: bool
+
+    def __init__(
+        self,
+        calfile: str,
+        recfile: str,
+        calanim: bool,
+        # If this is None, then it signifies that no
+        # recording should be queued.
+        recanim: Optional[bool],
+    ):
+        # Circular import otherwise
+        from .replay import FileSource
+        from .record import SocketSource
+
+        # Setup plot
+        plt.ion()
+        self.fig = plt.figure()
+        self.fig.canvas.mpl_connect("close_event", self.on_close)
+
+        self.ax = self.fig.add_subplot(projection="3d")
+        self.ax.set_xlabel("X position")
+        self.ax.set_ylabel("Y position")
+        self.ax.set_zlabel("Z position")
+
+        # This will be set up after we calibrate
+        self.ax2 = None
+        self.path2 = None
+        self.proj = None
+        self.origin = None
+
+        # Setup buttons
+        clear_ax = self.fig.add_axes((0.7, 0.05, 0.1, 0.075))
+        self.clear = Button(clear_ax, "Clear data")
+        self.clear.on_clicked(self.on_clear)
+        cal_ax = self.fig.add_axes((0.81, 0.05, 0.1, 0.075))
+        self.calibrate = Button(cal_ax, "Calibrate axes")
+        self.calibrate.on_clicked(self.on_calibrate)
+
+        self.data = None
+        self.calfile = calfile
+        self.recfile = recfile
+        self.recanim = recanim
+
+        self.xlim = (-0.5, 0.5)
+        self.ylim = (-0.5, 0.5)
+        self.zlim = (-0.5, 0.5)
+
+        self.xlim2 = (0, 0.1)
+        self.ylim2 = (0, 0.1)
+
+        self.should_calibrate = False
+        self.calibrating = False
+        self.should_exit = False
+
+        # Some initial data source setup depending on mode
+        try:
+            self.data = FileSource(self, calanim, self.calfile, True)
+            self.path = None
+            self.reset_path(True)
+            self.calibrating = True
+            log.info("Found calibration file")
+        except FileNotFoundError:
+            # Ok, whatever
+            log.warning("File specified was not able to be opened for reading")
+
+        if self.data is None and self.recanim is None:
+            log.info("Using socket source")
+            self.data = SocketSource(self, self.recfile)
+
+        if self.recanim is not None:
+            # We know we're in a replay; so don't
+            # allow the user to do some weird stuff
+            log.info("Disabling buttons for replay mode")
+            self.clear.set_active(False)
+            self.calibrate.set_active(False)
 
     def on_calibrate(self, event):
         self.should_calibrate = True
@@ -98,8 +177,8 @@ class Plotter:
         gs = self.fig.add_gridspec(1, 2)
         self.ax2 = self.fig.add_subplot(gs[0, 1])
         self.path2 = self.ax2.scatter([], [])
-        self.ax2.set_xlim(-1, 1)
-        self.ax2.set_ylim(-1, 1)
+        self.ax2.set_xlim(*self.xlim2)
+        self.ax2.set_ylim(*self.ylim2)
 
         # Resize existing 3D plot
         self.ax.set_subplotspec(gs[0, 0])
@@ -112,78 +191,6 @@ class Plotter:
             self.path.remove()
 
         self.path = self.ax.scatter([], [], [], s=50, alpha=alpha)
-
-    def __init__(
-        self,
-        calfile: str,
-        recfile: str,
-        calanim: bool,
-        # If this is None, then it signifies that no
-        # recording should be queued.
-        recanim: Optional[bool],
-    ):
-        # Circular import otherwise
-        from .replay import FileSource
-        from .record import SocketSource
-
-        # Setup plot
-        plt.ion()
-        self.fig = plt.figure()
-        self.fig.canvas.mpl_connect("close_event", self.on_close)
-
-        self.ax = self.fig.add_subplot(projection="3d")
-        self.ax.set_xlabel("X position")
-        self.ax.set_ylabel("Y position")
-        self.ax.set_zlabel("Z position")
-
-        # This will be set up after we calibrate
-        self.ax2 = None
-        self.path2 = None
-        self.proj = None
-        self.origin = None
-
-        # Setup buttons
-        clear_ax = self.fig.add_axes((0.7, 0.05, 0.1, 0.075))
-        self.clear = Button(clear_ax, "Clear data")
-        self.clear.on_clicked(self.on_clear)
-        cal_ax = self.fig.add_axes((0.81, 0.05, 0.1, 0.075))
-        self.calibrate = Button(cal_ax, "Calibrate axes")
-        self.calibrate.on_clicked(self.on_calibrate)
-
-        self.data = None
-        self.calfile = calfile
-        self.recfile = recfile
-        self.recanim = recanim
-
-        self.xlim = (-0.5, 0.5)
-        self.ylim = (-0.5, 0.5)
-        self.zlim = (-0.5, 0.5)
-
-        self.should_calibrate = False
-        self.calibrating = False
-        self.should_exit = False
-
-        # Some initial data source setup depending on mode
-        try:
-            self.data = FileSource(self, calanim, self.calfile, True)
-            self.path = None
-            self.reset_path(True)
-            self.calibrating = True
-            log.info("Found calibration file")
-        except FileNotFoundError:
-            # Ok, whatever
-            log.warning("File specified was not able to be opened for reading")
-
-        if self.data is None and self.recanim is None:
-            log.info("Using socket source")
-            self.data = SocketSource(self, self.recfile)
-
-        if self.recanim is not None:
-            # We know we're in a replay; so don't
-            # allow the user to do some weird stuff
-            log.info("Disabling buttons for replay mode")
-            self.clear.set_active(False)
-            self.calibrate.set_active(False)
 
     def run(self):
         # Circular import otherwise
@@ -216,6 +223,7 @@ class Plotter:
 
         except Exception as e:
             log.info(f"Got exception in data source: {e}")
+            log.info(f"Stack trace: {traceback.format_exc()}")
             if self.should_exit:
                 return
 
@@ -242,11 +250,12 @@ class Plotter:
         basis = np.array([x, y, z])
         projs = []
         for pt in pts:
-            proj = np.dot(basis, np.array([pt - self.origin]).T)
+            opt = np.array([pt - self.origin]).T
+            proj = np.matmul(basis, opt).T[0]
             if abs(proj[2]) < zthresh:
                 projs.append(proj[:2])
 
-        return np.array(projs)
+        return np.array(projs) if len(projs) > 0 else np.empty((0, 2))
 
     def set_title(self, title: str):
         self.ax.set_title(title)
@@ -282,9 +291,18 @@ class Plotter:
 
         if self.path2 is not None:
             pts = np.column_stack((pos.x, pos.y, pos.z))
-            projs = self.change_basis(pts)
+            projs = self.change_basis(pts, 0.001)
 
-            self.path2.set_offsets(projs)
+            # Swap X and Y axes because IDK
+
+            if not len(projs) == 0:
+                flip = projs[:, [1, 0]]
+                self.xlim2 = Plotter.get_lims(projs[:, 1], self.xlim2)
+                self.ax2.set_xlim(*self.xlim2)
+                self.ylim2 = Plotter.get_lims(projs[:, 0], self.ylim2)
+                self.ax2.set_ylim(*self.ylim2)
+
+                self.path2.set_offsets(flip)
 
         self.fig.canvas.draw_idle()
 
