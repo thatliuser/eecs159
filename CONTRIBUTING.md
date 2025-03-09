@@ -6,6 +6,13 @@ you can clone the Git repository and use `python -m realsense` as a command line
 further information on the flags that the command line tool accepts, run the tool with `-h`
 or look at `cli.py` for specifics on the argument parser.
 
+## Required packages
+Install the requirements.txt or look at the requirements.txt and install the packages listed.
+For now, the list is the following (please consult the actual file for up-to-date packages):
+- matplotlib
+- numpy
+- python-uinput (if on Linux)
+
 ## Control flow
 The current logic of the program is as follows:
 - Entrypoint at `cli.py` under `cli_main`
