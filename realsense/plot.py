@@ -16,6 +16,17 @@ import traceback
 log = logging.getLogger(__name__)
 
 
+def get_lims(arr: np.ndarray, lims: tuple[float, float]) -> tuple[float, float]:
+    min, max = lims
+    arrmax = np.max(arr)
+    arrmin = np.min(arr)
+    if arrmax > max:
+        max = arrmax
+    if arrmin < min:
+        min = arrmin
+    return (min, max)
+
+
 class ProjPlotter:
     plot: "Plotter"
     ax: Axes
@@ -91,9 +102,9 @@ class ProjPlotter:
         if not len(projs) == 0:
             # Swap X and Y axes because IDK
             flip = projs[:, [1, 0]]
-            self.xlim = Plotter.get_lims(projs[:, 1], self.xlim)
+            self.xlim = get_lims(projs[:, 1], self.xlim)
             self.ax.set_xlim(*self.xlim)
-            self.ylim = Plotter.get_lims(projs[:, 0], self.ylim)
+            self.ylim = get_lims(projs[:, 0], self.ylim)
             self.ax.set_ylim(*self.ylim)
 
             self.path.set_offsets(flip)
@@ -110,7 +121,6 @@ class Plotter:
 
     # Projection vectors once calibrated
     proj: Optional[ProjPlotter]
-
     data: Optional[DataSource]
 
     # Buttons
@@ -162,6 +172,7 @@ class Plotter:
         self.calibrate = Button(cal_ax, "Calibrate axes")
         self.calibrate.on_clicked(self.on_calibrate)
 
+        self.proj = None
         self.data = None
         self.calfile = calfile
         self.recfile = recfile
@@ -262,17 +273,6 @@ class Plotter:
         plt.ioff()
         plt.show()
 
-    @staticmethod
-    def get_lims(arr: np.ndarray, lims: tuple[float, float]) -> tuple[float, float]:
-        min, max = lims
-        arrmax = np.max(arr)
-        arrmin = np.min(arr)
-        if arrmax > max:
-            max = arrmax
-        if arrmin < min:
-            min = arrmin
-        return (min, max)
-
     def set_title(self, title: str):
         self.ax.set_title(title)
 
@@ -288,13 +288,13 @@ class Plotter:
 
         self.path._offsets3d = (xd, yd, zd)
         if not len(xd) == 0:
-            self.xlim = Plotter.get_lims(xd, self.xlim)
+            self.xlim = get_lims(xd, self.xlim)
             self.ax.set_xlim(*self.xlim)
         if not len(yd) == 0:
-            self.ylim = Plotter.get_lims(yd, self.ylim)
+            self.ylim = get_lims(yd, self.ylim)
             self.ax.set_ylim(*self.ylim)
         if not len(zd) == 0:
-            self.zlim = Plotter.get_lims(zd, self.zlim)
+            self.zlim = get_lims(zd, self.zlim)
             self.ax.set_zlim(*self.zlim)
 
         if len(td) > 1:
