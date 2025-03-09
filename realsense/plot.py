@@ -12,7 +12,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import logging
 import traceback
-import uinput
+import sys
+
+if sys.platform == "linux":
+    import uinput
 
 log = logging.getLogger(__name__)
 
@@ -37,7 +40,11 @@ class ProjPlotter:
 
     basis: tuple[np.ndarray, np.ndarray, np.ndarray]
     origin: np.ndarray
-    dev: uinput.Device
+    # TODO: Type annotation
+    if sys.platform == "linux":
+        dev: uinput.Device
+    else:
+        dev: None
 
     last_pos: Optional[tuple[float, float]]
 
@@ -86,7 +93,10 @@ class ProjPlotter:
         self.plot.ax.set_subplotspec(gs[0, 0])
 
         # TODO: Abstract this in a module otherwise this only will work on Linux
-        self.dev = uinput.Device((uinput.REL_X, uinput.REL_Y, uinput.BTN_LEFT))
+        if sys.platform == "linux":
+            self.dev = uinput.Device((uinput.REL_X, uinput.REL_Y, uinput.BTN_LEFT))
+        else:
+            self.dev = None
         self.last_pos = None
 
     def finalize(self):
@@ -121,20 +131,21 @@ class ProjPlotter:
             self.path.set_offsets(flip)
 
             x, y = flip[-1]
-            x = int(x * 1920)
-            y = int(y * 1080)
+            x = int(x * 1920 * 3)
+            y = int(y * 1080 * 3)
 
-            if self.last_pos is None:
-                # Go to the corner of the screen so we have "absolute positioning"
-                self.dev.emit(uinput.REL_X, -int(1e10))
-                self.dev.emit(uinput.REL_Y, -int(1e10))
-            else:
-                lx, ly = self.last_pos
-                self.dev.emit(uinput.REL_X, x - lx)
-                self.dev.emit(uinput.REL_Y, y - ly)
+            if sys.platform == "linux":
+                if self.last_pos is None:
+                    # Go to the corner of the screen so we have "absolute positioning"
+                    self.dev.emit(uinput.REL_X, -int(1e10))
+                    self.dev.emit(uinput.REL_Y, -int(1e10))
+                else:
+                    lx, ly = self.last_pos
+                    self.dev.emit(uinput.REL_X, x - lx)
+                    self.dev.emit(uinput.REL_Y, y - ly)
 
             self.last_pos = (x, y)
-            print(self.last_pos)
+            # print(self.last_pos)
 
 
 class Plotter:
