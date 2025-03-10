@@ -201,12 +201,15 @@ class ProjPlotter:
                 self.last_pos = (x, y, z)
             # print(self.last_pos)
 
+    def on_clear(self):
+        self.path.set_offsets(np.empty((0, 2)))
+
 
 class Plotter:
     fig: Figure
     ax: Axes3D
     # For current data source
-    path: Path3DCollection
+    path: Optional[Path3DCollection]
     xlim: tuple[float, float]
     ylim: tuple[float, float]
     zlim: tuple[float, float]
@@ -283,8 +286,8 @@ class Plotter:
 
         # Some initial data source setup depending on mode
         try:
-            self.data = FileSource(self, calanim, self.calfile, True)
             self.path = None
+            self.data = FileSource(self, calanim, self.calfile, True)
             self.reset_path(True)
             self.calibrating = True
             log.info("Found calibration file")
@@ -292,9 +295,13 @@ class Plotter:
             # Ok, whatever
             log.warning("File specified was not able to be opened for reading")
 
-        if self.data is None and self.recanim is None:
-            log.info("Using socket source")
-            self.data = SocketSource(self, self.recfile)
+        if self.data is None:
+            if self.recanim is None:
+                log.info("Using socket source")
+                self.data = SocketSource(self, self.recfile)
+            else:
+                log.info("Using file source without calibration file")
+                self.data = FileSource(self, self.recanim, self.recfile, False)
 
         if self.recanim is not None:
             # We know we're in a replay; so don't
@@ -310,6 +317,8 @@ class Plotter:
     def on_clear(self, event):
         if self.data:
             self.data.on_clear()
+        if self.proj:
+            self.proj.on_clear()
 
     def on_close(self, event):
         if self.data:

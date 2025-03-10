@@ -35,7 +35,7 @@ class SocketSource(DataSource):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind((listen_addr, port))
         self.sock.setblocking(False)
-        log.info("Listening on port:", port)
+        log.info(f"Listening on port {port}")
 
         self.sel = selectors.DefaultSelector()
         self.sel.register(self.sock, selectors.EVENT_READ)
