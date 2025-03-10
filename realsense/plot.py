@@ -8,6 +8,7 @@ from matplotlib.collections import PathCollection
 from mpl_toolkits.mplot3d.axes3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Path3DCollection
 from typing import Optional
+from time import sleep
 import matplotlib.pyplot as plt
 import numpy as np
 import logging
@@ -107,6 +108,7 @@ class ProjPlotter:
         self.last_pos = None
 
     def finalize(self):
+        log.info("Closing ProjPlotter")
         self.dev.destroy()
 
     # Performs a change of basis on a point given a specific basis and origin.
@@ -138,20 +140,28 @@ class ProjPlotter:
             self.path.set_offsets(trunc)
 
             x, y = trunc[-1]
-            x = int(x * 1920 * 3)
-            y = int(y * 1080 * 3)
 
             if sys.platform == "linux":
                 if self.last_pos is None:
                     # Go to the corner of the screen so we have "absolute positioning"
-                    self.dev.emit(uinput.REL_X, -int(1e10))
-                    self.dev.emit(uinput.REL_Y, -int(1e10))
+                    self.dev.emit(uinput.REL_X, -1920)
+                    self.dev.emit(uinput.REL_Y, -1080)
+                    # uinput takes a little bit to initialize so this is just to
+                    # make sure it actually registers this event
+                    # TODO: This works very inconsistently
+                    sleep(0.2)
                 else:
                     lx, ly = self.last_pos
-                    self.dev.emit(uinput.REL_X, x - lx)
-                    self.dev.emit(uinput.REL_Y, y - ly)
+                    # TODO: Get the actual screen resolution instead of hardcoding it
+                    dx = int((x - lx) * 1920)
+                    dy = int((y - ly) * 1080)
+                    self.dev.emit(uinput.REL_X, dx)
+                    # dy is negative because the axes is flipped on the screen
+                    # The "origin" of a screen is the top left corner,
+                    # not the bottom left.
+                    self.dev.emit(uinput.REL_Y, -dy)
 
-            self.last_pos = (x, y)
+                self.last_pos = (x, y)
             # print(self.last_pos)
 
 
