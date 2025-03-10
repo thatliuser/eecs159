@@ -39,6 +39,8 @@ class ProjPlotter:
     path: PathCollection
     xlim: tuple[float, float]
     ylim: tuple[float, float]
+    zthresh: float
+    clicking: bool
 
     basis: tuple[np.ndarray, np.ndarray, np.ndarray]
     origin: np.ndarray
@@ -48,12 +50,15 @@ class ProjPlotter:
     else:
         dev: None
 
-    last_pos: Optional[tuple[float, float]]
+    last_pos: Optional[tuple[float, float, float]]
 
     def __init__(self, plot: "Plotter", pts: list[np.ndarray]):
         self.plot = plot
         self.xlim = (0, 1)
         self.ylim = (0, 1)
+        # TODO: Let this be edited with a slider or a command line arg
+        self.zthresh = 0.065
+        self.clicking = False
 
         # When calibrating, the order of points SHOULD be:
         # - Bottom left corner
@@ -110,6 +115,8 @@ class ProjPlotter:
 
     def finalize(self):
         log.info("Closing ProjPlotter")
+        if self.clicking:
+            self.dev.emit(uinput.BTN_LEFT, 0)
         self.dev.destroy()
 
     # Performs a change of basis on a point given a specific basis and origin.
@@ -139,15 +146,15 @@ class ProjPlotter:
             self.ax.set_ylim(*self.ylim)
 
             # Color map
-            mask = projs[:, 2] > 0.065
+            mask = projs[:, 2] > self.zthresh
             colors = np.zeros((len(projs), 4))
             colors[mask] = matplotlib.colors.to_rgba("#FF9999", 0.3)
             colors[~mask] = matplotlib.colors.to_rgba("blue", 1.0)
-            self.path.set_color(colors)
+            self.path.set_color(colors)  # type: ignore
 
             self.path.set_offsets(trunc)
 
-            x, y = trunc[-1]
+            x, y, z = projs[-1]
 
             if sys.platform == "linux":
                 if self.last_pos is None:
@@ -159,7 +166,7 @@ class ProjPlotter:
                     # TODO: This works very inconsistently
                     sleep(0.2)
                 else:
-                    lx, ly = self.last_pos
+                    lx, ly, lz = self.last_pos
                     # TODO: Get the actual screen resolution instead of hardcoding it
                     dx = int((x - lx) * 1920)
                     dy = int((y - ly) * 1080)
@@ -169,7 +176,15 @@ class ProjPlotter:
                     # not the bottom left.
                     self.dev.emit(uinput.REL_Y, -dy)
 
-                self.last_pos = (x, y)
+                    press = z < self.zthresh
+                    lpress = lz < self.zthresh
+
+                    if not press == lpress:
+                        log.info(f"Button {'pressed' if press else 'released'}")
+                        self.dev.emit(uinput.BTN_LEFT, 1 if press else 0)
+                        self.clicking = press
+
+                self.last_pos = (x, y, z)
             # print(self.last_pos)
 
 
@@ -333,11 +348,11 @@ class Plotter:
                 return
 
         log.info("All data sources have exited, turning off interactive graph")
-        plt.ioff()
-        plt.show()
-
         if self.proj is not None:
             self.proj.finalize()
+
+        plt.ioff()
+        plt.show()
 
     def set_title(self, title: str):
         self.ax.set_title(title)
