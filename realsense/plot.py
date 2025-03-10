@@ -10,6 +10,7 @@ from mpl_toolkits.mplot3d.art3d import Path3DCollection
 from typing import Optional
 from time import sleep
 import matplotlib.pyplot as plt
+import matplotlib.colors
 import numpy as np
 import logging
 import traceback
@@ -136,6 +137,13 @@ class ProjPlotter:
             self.ax.set_xlim(*self.xlim)
             self.ylim = get_lims(projs[:, 1], self.ylim)
             self.ax.set_ylim(*self.ylim)
+
+            # Color map
+            mask = projs[:, 2] > 0.065
+            colors = np.zeros((len(projs), 4))
+            colors[mask] = matplotlib.colors.to_rgba("#FF9999", 0.3)
+            colors[~mask] = matplotlib.colors.to_rgba("blue", 1.0)
+            self.path.set_color(colors)
 
             self.path.set_offsets(trunc)
 
