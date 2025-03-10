@@ -4,9 +4,17 @@ from pix2text import Pix2Text
 #webbrowser
 import webbrowser
 import os
+from flask import Flask, render_template
+
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    # Render an HTML file (make sure you have an 'index.html' file in the 'templates' folder)
+    return render_template('desmos.html')
 
 def plot_equation(equation):
-    f = open('./output/desmos.html', 'w') 
+    f = open('./templates/desmos.html', 'w') 
     html_template = f""" 
     <script src="https://www.desmos.com/api/v1.10/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
     <div id="calculator" style="width: 600px; height: 400px;"></div>
@@ -21,10 +29,6 @@ def plot_equation(equation):
   
     # close the file 
     f.close() 
-  
-    # 1st method how to open html files in chrome using 
-    filename = 'file:///'+os.getcwd()+'/output/' + 'desmos.html'
-    webbrowser.open_new_tab(filename) 
 
 def get_equation(path):
     p2t = Pix2Text.from_config()
@@ -36,4 +40,7 @@ def main():
     equation = get_equation("./input/yx.jpg")
     plot_equation(equation)
 
-main()
+
+if __name__ == '__main__':
+    main()
+    app.run(debug=True)
