@@ -115,7 +115,7 @@ class ProjPlotter:
 
     def finalize(self):
         log.info("Closing ProjPlotter")
-        if self.clicking:
+        if self.clicking and sys.platform == "linux":
             self.dev.emit(uinput.BTN_LEFT, 0)
         self.dev.destroy()
 
