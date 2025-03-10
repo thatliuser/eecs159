@@ -50,11 +50,18 @@ class ProjPlotter:
 
     def __init__(self, plot: "Plotter", pts: list[np.ndarray]):
         self.plot = plot
-        self.xlim = (0, 0.1)
-        self.ylim = (0, 0.1)
+        self.xlim = (0, 1)
+        self.ylim = (0, 1)
 
-        x = pts[1] - pts[0]
-        y = pts[2] - pts[0]
+        # When calibrating, the order of points SHOULD be:
+        # - Bottom left corner
+        # - Top left corner
+        # - Bottom right corner
+        # - Top right corner
+        # So y is clearly top left - bot left
+        # and x is clearly bot right - bot left
+        x = pts[2] - pts[0]
+        y = pts[1] - pts[0]
 
         # Calculate projection of Y onto X axis
         xx = np.dot(x, x)
@@ -107,11 +114,11 @@ class ProjPlotter:
         # This will error if the basis doesn't exist but this should
         # only be called when we already have a projection setup
         x, y, z = self.basis
-        basis = np.array([x, y, z])
+        basis = np.column_stack((x, y, z))
         projs = []
         for pt in pts:
-            opt = np.array([pt - self.origin]).T
-            proj = np.matmul(basis, opt).T[0]
+            opt = pt - self.origin
+            proj = np.linalg.solve(basis, opt)
             projs.append(proj)
 
         return np.array(projs) if len(projs) > 0 else np.empty((0, 3))
@@ -121,16 +128,16 @@ class ProjPlotter:
         projs = self.change_basis(pts)
 
         if not len(projs) == 0:
-            # Swap X and Y axes because IDK
-            flip = projs[:, [1, 0]]
-            self.xlim = get_lims(projs[:, 1], self.xlim)
+            # Only take the x and y components
+            trunc = projs[:, [0, 1]]
+            self.xlim = get_lims(projs[:, 0], self.xlim)
             self.ax.set_xlim(*self.xlim)
-            self.ylim = get_lims(projs[:, 0], self.ylim)
+            self.ylim = get_lims(projs[:, 1], self.ylim)
             self.ax.set_ylim(*self.ylim)
 
-            self.path.set_offsets(flip)
+            self.path.set_offsets(trunc)
 
-            x, y = flip[-1]
+            x, y = trunc[-1]
             x = int(x * 1920 * 3)
             y = int(y * 1080 * 3)
 
