@@ -2,7 +2,7 @@ from .types import Position
 from .source import DataSource
 
 from matplotlib.figure import Figure
-from matplotlib.widgets import Button
+from matplotlib.widgets import Button, Slider
 from matplotlib.axes import Axes
 from matplotlib.collections import PathCollection
 from mpl_toolkits.mplot3d.axes3d import Axes3D
@@ -37,9 +37,11 @@ class ProjPlotter:
     plot: "Plotter"
     ax: Axes
     path: PathCollection
+    slider: Slider
     xlim: tuple[float, float]
     ylim: tuple[float, float]
     zthresh: float
+    cursor: bool
     clicking: bool
 
     basis: tuple[np.ndarray, np.ndarray, np.ndarray]
@@ -52,13 +54,19 @@ class ProjPlotter:
 
     last_pos: Optional[tuple[float, float, float]]
 
-    def __init__(self, plot: "Plotter", pts: list[np.ndarray]):
+    def __init__(self, plot: "Plotter", pts: list[np.ndarray], cursor: bool):
         self.plot = plot
         self.xlim = (0, 1)
         self.ylim = (0, 1)
         # TODO: Let this be edited with a slider or a command line arg
         self.zthresh = 0.065
         self.clicking = False
+
+        slider_ax = self.plot.fig.add_axes((0.2, 0.05, 0.1, 0.075))
+        self.slider = Slider(
+            slider_ax, label="Z threshold", valmin=0, valmax=1, valinit=self.zthresh
+        )
+        self.slider.on_changed(self.on_slider)
 
         # When calibrating, the order of points SHOULD be:
         # - Bottom left corner
@@ -109,9 +117,15 @@ class ProjPlotter:
         # TODO: Abstract this in a module otherwise this only will work on Linux
         if sys.platform == "linux":
             self.dev = uinput.Device((uinput.REL_X, uinput.REL_Y, uinput.BTN_LEFT))
+            # TODO: Don't even make the device if it's not needed
+            self.cursor = cursor
         else:
             self.dev = None
         self.last_pos = None
+
+    def on_slider(self, val: float):
+        self.zthresh = val
+        log.info(f"Set Z threshold to {self.zthresh}")
 
     def finalize(self):
         log.info("Closing ProjPlotter")
@@ -156,7 +170,7 @@ class ProjPlotter:
 
             x, y, z = projs[-1]
 
-            if sys.platform == "linux":
+            if sys.platform == "linux" and self.cursor:
                 if self.last_pos is None:
                     # Go to the corner of the screen so we have "absolute positioning"
                     self.dev.emit(uinput.REL_X, -1920)
@@ -216,12 +230,14 @@ class Plotter:
     should_calibrate: bool
     calibrating: bool
     should_exit: bool
+    cursor: bool
 
     def __init__(
         self,
         calfile: str,
         recfile: str,
         calanim: bool,
+        cursor: bool,
         # If this is None, then it signifies that no
         # recording should be queued.
         recanim: Optional[bool],
@@ -263,6 +279,7 @@ class Plotter:
         self.should_calibrate = False
         self.calibrating = False
         self.should_exit = False
+        self.cursor = cursor
 
         # Some initial data source setup depending on mode
         try:
@@ -301,7 +318,7 @@ class Plotter:
         self.should_exit = True
 
     def calibrate_to(self, pts: list[np.ndarray]):
-        self.proj = ProjPlotter(self, pts)
+        self.proj = ProjPlotter(self, pts, self.cursor)
 
     def reset_path(self, calibrate: bool):
         log.debug("Resetting path collection")

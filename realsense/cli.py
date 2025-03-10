@@ -30,6 +30,13 @@ def cli_main():
         default=False,
         help="Whether to replay the calibration file as an animation",
     )
+    top.add_argument(
+        "-nc",
+        "--no-cursor",
+        action="store_true",
+        default=False,
+        help="Whether to control the mouse cursor.",
+    )
     sub.add_parser("record", help="Record a tool in realtime")
     rep = sub.add_parser("replay", help="Replay a tool from a file")
     rep.add_argument(
@@ -47,6 +54,7 @@ def cli_main():
         args.calibrate_file,
         args.file,
         args.calibrate_anim,
+        not args.no_cursor,
         anim,
     )
     plot.run()
