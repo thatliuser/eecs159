@@ -45,6 +45,7 @@
               # pandas
               # filterpy
               python-uinput
+              snakeviz
               # self.outputs.packages."${system}".ahrs
             ]))
             # arduino-cli

@@ -4,6 +4,7 @@ from typing import TypedDict
 
 import numpy as np
 
+
 class RecordingRow(TypedDict):
     sno: float
     time: float
@@ -19,18 +20,21 @@ class RecordingRow(TypedDict):
 
 csvkeys = list(RecordingRow.__annotations__.keys())
 
+
 @dataclass
 class Position:
     x: deque[float]
     y: deque[float]
     z: deque[float]
     t: deque[float]
+    cursor: int
 
     def __init__(self, len: int = 100):
         self.x = deque(maxlen=len)
         self.y = deque(maxlen=len)
         self.z = deque(maxlen=len)
         self.t = deque(maxlen=len)
+        self.cursor = 0
 
     def append(self, pos: tuple[float, float, float], t: float):
         x, y, z = pos
@@ -38,6 +42,9 @@ class Position:
         self.y.append(y)
         self.z.append(z)
         self.t.append(t)
+
+    def set_cursor(self, cursor: int):
+        self.cursor = cursor
 
     def clear(self):
         self.x = []

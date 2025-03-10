@@ -68,7 +68,7 @@ class FileSource(DataSource):
         if self.done:
             raise IndexError("Recording finished")
         elif self.animate:
-            sleep(0.01)
+            sleep(0.005)
             return self.chomp(pos) > 0
         elif self.calibrate:
             row = self.rows.popleft()

@@ -9,6 +9,7 @@ from mpl_toolkits.mplot3d.axes3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Path3DCollection
 from typing import Optional
 from time import sleep
+from datetime import datetime
 import matplotlib.pyplot as plt
 import matplotlib.colors
 import matplotlib
@@ -126,7 +127,7 @@ class ProjPlotter:
 
     def on_slider(self, val: float):
         self.zthresh = val
-        log.info(f"Set Z threshold to {self.zthresh}")
+        # log.info(f"Set Z threshold to {self.zthresh}")
 
     def finalize(self):
         log.info("Closing ProjPlotter")
@@ -140,13 +141,14 @@ class ProjPlotter:
         # only be called when we already have a projection setup
         x, y, z = self.basis
         basis = np.column_stack((x, y, z))
-        projs = []
-        for pt in pts:
-            opt = pt - self.origin
-            proj = np.linalg.solve(basis, opt)
-            projs.append(proj)
+        projs = np.linalg.solve(basis, (pts - self.origin).T).T
+        # projs = []
+        # for pt in pts:
+        #    opt = pt - self.origin
+        #    proj = np.linalg.solve(basis, opt)
+        #    projs.append(proj)
 
-        return np.array(projs) if len(projs) > 0 else np.empty((0, 3))
+        return projs if len(projs) > 0 else np.empty((0, 3))
 
     def update(self, pos: Position):
         pts = np.column_stack((pos.x, pos.y, pos.z))
@@ -235,6 +237,7 @@ class Plotter:
     calibrating: bool
     should_exit: bool
     cursor: bool
+    last_flush: datetime
 
     def __init__(
         self,
@@ -291,6 +294,7 @@ class Plotter:
         self.calibrating = False
         self.should_exit = False
         self.cursor = cursor
+        self.last_flush = datetime.now()
 
         # Some initial data source setup depending on mode
         try:
@@ -424,7 +428,14 @@ class Plotter:
         if self.proj is not None:
             self.proj.update(pos)
 
-        self.fig.canvas.draw_idle()
+        self.fig.canvas.blit(self.fig.bbox)
+        # self.fig.canvas.draw_idle()
 
     def flush(self):
-        self.fig.canvas.flush_events()
+        now = datetime.now()
+        delta = now - self.last_flush
+        ms = delta.total_seconds() * 1000.0
+        # Only flush events every 10 milliseconds or so (~100Hz)
+        if ms > 10:
+            self.fig.canvas.flush_events()
+            self.last_flush = now
