@@ -302,6 +302,7 @@ class Plotter:
             else:
                 log.info("Using file source without calibration file")
                 self.data = FileSource(self, self.recanim, self.recfile, False)
+            self.reset_path(False)
 
         if self.recanim is not None:
             # We know we're in a replay; so don't
