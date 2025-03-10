@@ -28,19 +28,27 @@
         pen = pkgs.stdenv.mkDerivation {
           pname = "pen";
           version = "0.0.1";
+          buildInputs = with pkgs; [
+            libsForQt5.qt5.qtwayland
+          ];
+
+          QT_PLUGIN_PATH = with pkgs.qt5; "${qtbase}/${qtbase.qtPluginPrefix}";
+
           nativeBuildInputs = with pkgs; [
             (python3.withPackages (py: with py; [
-              pyserial
-              bleak
-              matplotlib
+              # pyserial
+              # bleak
+              (matplotlib.override {
+                enableQt = true;
+              })
               numpy
-              pandas
-              filterpy
+              # pandas
+              # filterpy
               python-uinput
-              self.outputs.packages."${system}".ahrs
+              # self.outputs.packages."${system}".ahrs
             ]))
-            arduino-cli
-            tio
+            # arduino-cli
+            # tio
           ];
         };
         default = pen;

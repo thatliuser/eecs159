@@ -11,6 +11,7 @@ from typing import Optional
 from time import sleep
 import matplotlib.pyplot as plt
 import matplotlib.colors
+import matplotlib
 import numpy as np
 import logging
 import traceback
@@ -248,6 +249,13 @@ class Plotter:
         # Circular import otherwise
         from .replay import FileSource
         from .record import SocketSource
+
+        try:
+            matplotlib.use("qtagg", force=True)
+        except ImportError:
+            log.warning(
+                "Couldn't switch rendering backend to Qt5, CPU usage may be high!"
+            )
 
         # Setup plot
         plt.ion()
