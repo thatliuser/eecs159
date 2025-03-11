@@ -341,6 +341,7 @@ class Plotter:
 
     def calibrate_to(self, pts: list[np.ndarray]):
         self.proj = ProjPlotter(self, pts, self.cursor)
+        self.fig.canvas.draw_idle()
 
     def reset_path(self, calibrate: bool):
         log.debug("Resetting path collection")
@@ -400,6 +401,7 @@ class Plotter:
         self,
         pos: Position,
     ):
+
         # 3D
         xd = np.array(pos.x)
         yd = np.array(pos.y)
@@ -427,9 +429,8 @@ class Plotter:
 
         if self.proj is not None:
             self.proj.update(pos)
-
-        self.fig.canvas.blit(self.fig.bbox)
-        # self.fig.canvas.draw_idle()
+    
+        self.fig.canvas.draw_idle()
 
     def flush(self):
         now = datetime.now()
