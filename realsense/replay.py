@@ -2,8 +2,9 @@ import csv
 from datetime import datetime
 from time import sleep
 from collections import deque
+from typing import Optional
 
-from .source import DataSource
+from .source import DataSource, Projection
 from .types import RecordingRow, csvkeys, Position
 from .plot import Plotter
 
@@ -21,8 +22,9 @@ class FileSource(DataSource):
         animate: bool,
         file: str,
         calibrate: bool = False,
+        proj: Optional[Projection] = None,
     ):
-        super().__init__(plot, calibrate)
+        super().__init__(plot, calibrate, proj)
         with open(file, "r") as input:
             reader = csv.DictReader(input, fieldnames=csvkeys)
             self.rows = deque([row for row in reader])

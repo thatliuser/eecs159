@@ -1,6 +1,6 @@
 from collections import deque
 from dataclasses import dataclass
-from typing import TypedDict
+from typing import TypedDict, Callable, Optional
 
 import numpy as np
 
@@ -27,14 +27,18 @@ class Position:
     y: deque[float]
     z: deque[float]
     t: deque[float]
-    cursor: int
+    on_append: Optional[Callable[[tuple[float, float, float], float], None]]
 
-    def __init__(self, len: int = 100):
+    def __init__(
+        self,
+        len: int = 100,
+        on_append: Optional[Callable[[tuple[float, float, float], float], None]] = None,
+    ):
         self.x = deque(maxlen=len)
         self.y = deque(maxlen=len)
         self.z = deque(maxlen=len)
         self.t = deque(maxlen=len)
-        self.cursor = 0
+        self.on_append = on_append
 
     def append(self, pos: tuple[float, float, float], t: float):
         x, y, z = pos
@@ -42,9 +46,8 @@ class Position:
         self.y.append(y)
         self.z.append(z)
         self.t.append(t)
-
-    def set_cursor(self, cursor: int):
-        self.cursor = cursor
+        if self.on_append is not None:
+            self.on_append(pos, t)
 
     def clear(self):
         self.x = []

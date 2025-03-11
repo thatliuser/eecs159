@@ -5,9 +5,10 @@ import selectors
 import csv
 import logging
 from io import TextIOWrapper
+from typing import Optional
 
 from .replay import RecordingRow, csvkeys
-from .source import DataSource
+from .source import DataSource, Projection
 from .plot import Plotter
 from .types import Position
 
@@ -26,9 +27,10 @@ class SocketSource(DataSource):
         plot: Plotter,
         file: str,
         calibrate: bool = False,
+        proj: Optional[Projection] = None,
         port: int = 12345,
     ):
-        super().__init__(plot, calibrate)
+        super().__init__(plot, calibrate, proj)
         self.outfile = open(file, "w")
         self.writer = csv.DictWriter(self.outfile, fieldnames=csvkeys)
         listen_addr = "0.0.0.0"
