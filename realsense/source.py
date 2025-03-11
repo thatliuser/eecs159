@@ -234,5 +234,7 @@ class DataSource(ABC):
         except Exception as e:
             log.info(f"Got exception in run loop: {e}")
             self.finalize()
+            if self.proj is not None:
+                self.proj.finalize()
 
             raise e
