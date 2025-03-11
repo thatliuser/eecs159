@@ -1,6 +1,7 @@
 # Data source
 from abc import abstractmethod, ABC
 from typing import TYPE_CHECKING, Optional
+from mpl_toolkits.mplot3d.art3d import Path3DCollection, Poly3DCollection
 
 import logging
 import numpy as np
@@ -52,9 +53,9 @@ class Projection:
         y = pts[1] - pts[0]
         xx = np.dot(x, x)
         xy = np.dot(x, y)
-        projxy = (xy / xx) * x
+        plotxy = (xy / xx) * x
         # "Rectify" the Y axis by calculating the vector rejection of the Y axis from the X
-        y = y - projxy
+        y = y - plotxy
         # Get normal vector
         z = np.cross(x, y)
 
@@ -109,7 +110,7 @@ class Projection:
             self.last_pos = np.array([x, y, z])
 
     def on_clear(self):
-        self.proj.path.set_offsets(np.empty((0, 2)))
+        self.plot.path.set_offsets(np.empty((0, 2)))
 
     def finalize(self):
         log.info("Closing Projection")
@@ -117,6 +118,9 @@ class Projection:
             if self.clicking:
                 self.dev.emit(uinput.BTN_LEFT, 0)
             self.dev.destroy()
+
+        for obj in self.plot.objects:
+            obj.remove()
 
     def update(self):
         self.plot.update(self.pos)
@@ -177,7 +181,7 @@ class DataSource(ABC):
     def finalize(self):
         pass
 
-    def calibrate_point(self) -> np.ndarray:
+    def calibrate_point(self) -> tuple[np.ndarray, Poly3DCollection]:
         # 150 / 30fps is around 5 seconds
         pos = Position(300)
 
@@ -193,19 +197,29 @@ class DataSource(ABC):
         pt = np.array([np.mean(pos.x), np.mean(pos.y), np.mean(pos.z)])
         log.debug(f"({pt[0]}, {pt[1]}, {pt[2]})")
 
-        # TODO: Hacky and doesn't get erased from the plot ever (?)
-        self.plot.ax.scatter(*pt, c="red", s=100)
+        obj = self.plot.ax.scatter(*pt, c="red", s=100)
 
-        return pt
+        return pt, obj
 
     def do_calibrate(self) -> list[np.ndarray]:
         log.debug("Calibrating")
         self.plot.set_title("Position plot (calibrating)")
 
-        pts = [self.calibrate_point() for _ in range(4)]
+        # Point data list
+        pts: list[np.ndarray] = []
+        # Objects list (Poly3DCollection)
+        objs: list[Poly3DCollection] = []
+        for _ in range(4):
+            pt, obj = self.calibrate_point()
+            pts.append(pt)
+            objs.append(obj)
 
         log.debug("Calibration done")
         self.plot.set_title("Position plot (calibrated)")
+
+        # Remove all the points since we're not in calibration mode anymore
+        for obj in objs:
+            obj.remove()
 
         return pts
 

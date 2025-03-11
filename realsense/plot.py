@@ -6,7 +6,7 @@ from matplotlib.widgets import Button, Slider
 from matplotlib.axes import Axes
 from matplotlib.collections import PathCollection
 from mpl_toolkits.mplot3d.axes3d import Axes3D
-from mpl_toolkits.mplot3d.art3d import Path3DCollection
+from mpl_toolkits.mplot3d.art3d import Path3DCollection, Poly3DCollection
 from typing import Optional
 from time import sleep
 from datetime import datetime
@@ -41,6 +41,8 @@ class ProjPlotter:
     ax: Axes
     path: PathCollection
     slider: Slider
+    # Graph objects that need to be removed when recalibrating
+    objects: list[Poly3DCollection]
     xlim: tuple[float, float]
     ylim: tuple[float, float]
 
@@ -63,10 +65,10 @@ class ProjPlotter:
         origin = self.proj.origin
         x, y, z = self.proj.basis
 
-        # TODO: Add these to some state variable so they can be removed / toggled
-        self.plot.ax.quiver(*origin, *x, color="blue")
-        self.plot.ax.quiver(*origin, *y, color="green")
-        self.plot.ax.quiver(*origin, *z, color="purple")
+        self.objects = []
+        self.objects.append(self.plot.ax.quiver(*origin, *x, color="blue"))
+        self.objects.append(self.plot.ax.quiver(*origin, *y, color="green"))
+        self.objects.append(self.plot.ax.quiver(*origin, *z, color="purple"))
 
         d = -np.dot(z, origin)
         # Create a range of values for x and y (from -1 to 1)
@@ -74,7 +76,7 @@ class ProjPlotter:
         xs, ys = np.meshgrid(r, r)
         zs = (-z[0] * xs - z[1] * ys - d) * 1.0 / z[2]
 
-        self.plot.ax.plot_surface(xs, ys, zs, alpha=0.2)
+        self.objects.append(self.plot.ax.plot_surface(xs, ys, zs, alpha=0.2))
 
         # Add new 2D plot alongside 3D plot
         gs = self.plot.fig.add_gridspec(1, 2)
