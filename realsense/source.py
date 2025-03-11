@@ -60,7 +60,7 @@ class Projection:
 
         log.info(f"Got x vector {x}, y vector {y}, z vector {z}")
 
-        self.basis = np.array([x, y, z])
+        self.basis = np.column_stack((x, y, z))
         self.origin = pts[0]
         self.cursor = cursor
         # TODO: Abstract this in a module otherwise this only will work on Linux
