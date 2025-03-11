@@ -1,5 +1,5 @@
 # ZotPen
-A cheap OCR tool for classrooms
+A cheap OCR tool for classrooms.
 
 ## Developer documentation
 See [here.](./CONTRIBUTING.md)
@@ -14,8 +14,11 @@ If you actually want to record data, you need the following:
 Otherwise, we have pre-recorded data available in the samples subdirectory.
 
 ## Running
-If you are using an actual marker, first make sure that the tool tracker is running, then
-run `python -m realsense` in the root directory.
+Run `pip install -r requirements.txt` to install dependencies.
 
-If you're just running a sample, run `python -m realsense -f <sample>` to replay the sample.
-If you want to see the 2D projection (currently not animated), run `python -m realsense -f <sample> -na`.
+If you are using an actual marker, first make sure that the tool tracker is running, then
+run `python -m realsense record` in the root directory.
+
+If you're just running a sample, run `python -m realsense -f <sample> replay` to replay the sample.
+If you want to see the 2D projection (currently not animated), you need to specify a calibration file:
+run `python -m realsense -cf <calibration_file> -f <sample> replay`.
