@@ -12,6 +12,7 @@ For now, the list is the following (please consult the actual file for up-to-dat
 - matplotlib
 - numpy
 - python-uinput (if on Linux)
+- pynput (if not on Linux)
 
 ## Control flow
 The current logic of the program is as follows:
@@ -20,6 +21,7 @@ The current logic of the program is as follows:
 - The `Plotter` loads optional calibration and recording data in its `__init__`
   method and instantiates an instance of a class that implements the `DataSource` abstract class.
 - The `DataSource` is ran, which updates the plot with data it has read.
+- The `DataSource` controls the position of the user's mouse on screen if calibrated with a `Cursor`.
 - The `DataSource` finishes, and the `Plotter` either stops updating interactively or loads another `DataSource`.
 
 ## Classes of interest
@@ -34,6 +36,11 @@ Data sources provide the plotter with position data. Currently there are two sou
 - A `FileSource` that reads data from a CSV file.
 - A `SocketSource` that receives data from the RealSense-ToolTracker application.
 
+### Cursor abstraction
+The `Cursor` class controls a mouse cursor and clicks. Currently we have two backends implemented:
+- `UinputCursor`, which uses uinput (which is only available on Linux and works on both Wayland and X11)
+- `PynputCursor`, which uses pynput (which is cross platform, but does not work on Wayland)
+
 
 ## File structure
 The current file structure is as follows:
@@ -43,5 +50,6 @@ The current file structure is as follows:
   that provides a `Plotter` with position data.
 - `record.py` - `SocketSource` class that implements `DataSource`, receives position data from a UDP socket.
 - `replay.py` - `FileSource` class that implements `DataSource`, reads position data from a CSV file.
-- `types.py` - Shared types like `Position` (which represents position data that the plotter receives)
+- `state.py` - Shared types like `Position` (which represents position data that the plotter receives)
   and `RecordingRow` (which describes what each row of the CSV file in the `FileSource` looks like).
+- `cursor.py` - `Cursor`, `UinputCursor`, `PynputCursor`, which abstract mouse control.
