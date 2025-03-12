@@ -151,7 +151,8 @@ class DataSource(ABC):
         self.calibrate = calibrate
 
         # Set the title
-        self.plot.set_title("Position plot (uncalibrated)")
+        if proj is None:
+            self.plot.set_title("Position plot (uncalibrated)")
 
         # Scatterplot
         if self.proj is not None:
@@ -203,13 +204,16 @@ class DataSource(ABC):
 
     def do_calibrate(self) -> list[np.ndarray]:
         log.debug("Calibrating")
-        self.plot.set_title("Position plot (calibrating)")
 
         # Point data list
         pts: list[np.ndarray] = []
         # Objects list (Poly3DCollection)
         objs: list[Poly3DCollection] = []
-        for _ in range(4):
+
+        descs = ["bottom left", "top left", "bottom right", "top right"]
+
+        for i in range(4):
+            self.plot.set_title(f"Position plot (calibrating {descs[i]} corner)")
             pt, obj = self.calibrate_point()
             pts.append(pt)
             objs.append(obj)

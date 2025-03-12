@@ -4,7 +4,6 @@ import struct
 import selectors
 import csv
 import logging
-from io import TextIOWrapper
 from typing import Optional
 
 from .replay import RecordingRow, csvkeys
@@ -19,8 +18,7 @@ class SocketSource(DataSource):
     sock: socket.socket
     sel: selectors.DefaultSelector
     rows: deque[RecordingRow]
-    outfile: TextIOWrapper
-    writer: csv.DictWriter
+    file: str
 
     def __init__(
         self,
@@ -31,8 +29,7 @@ class SocketSource(DataSource):
         port: int = 12345,
     ):
         super().__init__(plot, calibrate, proj)
-        self.outfile = open(file, "w")
-        self.writer = csv.DictWriter(self.outfile, fieldnames=csvkeys)
+        self.file = file
         listen_addr = "0.0.0.0"
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind((listen_addr, port))
@@ -85,7 +82,10 @@ class SocketSource(DataSource):
         return not len(events) == 0
 
     def finalize(self):
-        self.writer.writerows(self.rows)
+        # We're only opening the file here so that if calibration fails in the middle,
+        # the calibration csv isn't left empty.
+        file = open(self.file, "w")
+        writer = csv.DictWriter(file, fieldnames=csvkeys)
+        writer.writerows(self.rows)
         self.sel.unregister(self.sock)
         self.sock.close()
-        self.outfile.close()
