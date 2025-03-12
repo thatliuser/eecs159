@@ -1,4 +1,5 @@
 numpy
 matplotlib
 python-uinput; sys_platform == 'linux'
+pynput; sys_platform != 'linux'
 pyqt5

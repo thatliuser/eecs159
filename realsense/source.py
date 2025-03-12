@@ -7,11 +7,10 @@ import logging
 import numpy as np
 import sys
 
-if sys.platform == "linux":
-    import uinput
 if TYPE_CHECKING:
     from .plot import Plotter, ProjPlotter
 from .state import Position
+from .cursor import Cursor
 
 log = logging.getLogger(__name__)
 
@@ -24,12 +23,7 @@ class Projection:
     origin: np.ndarray
     # Plotter
     plot: "ProjPlotter"
-    cursor: bool
-
-    if sys.platform == "linux":
-        dev: uinput.Device
-    else:
-        dev: None
+    cursor: Optional[Cursor]
 
     zthresh: float = 0.065
     last_pos: Optional[np.ndarray] = None
@@ -63,13 +57,7 @@ class Projection:
 
         self.basis = np.column_stack((x, y, z))
         self.origin = pts[0]
-        self.cursor = cursor
-        # TODO: Abstract this in a module otherwise this only will work on Linux
-        if sys.platform == "linux":
-            # TODO: Don't even make the device if it's not needed
-            self.dev = uinput.Device((uinput.REL_X, uinput.REL_Y, uinput.BTN_LEFT))
-        else:
-            self.dev = None
+        self.cursor = Cursor.default() if cursor else None
 
         from .plot import ProjPlotter
 
@@ -84,40 +72,30 @@ class Projection:
         x, y, z = self.change_basis(np.array(pos))
         self.pos.append((x, y, z), t)
 
-        if self.cursor:
-            if self.last_pos is None:
-                self.dev.emit(uinput.REL_X, -1920)
-                self.dev.emit(uinput.REL_Y, -1080)
-            else:
-                lx, ly, lz = self.last_pos
-                # TODO: Get the actual screen resolution instead of hardcoding it
-                dx = int((x - lx) * 1920)
-                dy = int((y - ly) * 1080)
-                self.dev.emit(uinput.REL_X, dx)
-                # dy is negative because the axes is flipped on the screen
-                # The "origin" of a screen is the top left corner,
-                # not the bottom left.
-                self.dev.emit(uinput.REL_Y, -dy)
+        if self.cursor is not None and self.last_pos is not None:
+            lx, ly, lz = self.last_pos
+            # TODO: Get the actual screen resolution instead of hardcoding it
+            dx = int((x - lx) * 1920)
+            dy = int((y - ly) * 1080)
+            self.cursor.move(dx, dy)
 
-                press = z < self.zthresh
-                lpress = lz < self.zthresh
+            press = z < self.zthresh
+            lpress = lz < self.zthresh
 
-                if not press == lpress:
-                    log.info(f"Button {'pressed' if press else 'released'}")
-                    self.dev.emit(uinput.BTN_LEFT, 1 if press else 0)
-                    self.clicking = press
+            if not press == lpress:
+                log.info(f"Button {'pressed' if press else 'released'}")
+                self.cursor.click(press)
+                self.clicking = press
 
-            self.last_pos = np.array([x, y, z])
+        self.last_pos = np.array([x, y, z])
 
     def on_clear(self):
         self.plot.path.set_offsets(np.empty((0, 2)))
 
     def finalize(self):
         log.info("Closing Projection")
-        if sys.platform == "linux":
-            if self.clicking:
-                self.dev.emit(uinput.BTN_LEFT, 0)
-            self.dev.destroy()
+        if self.cursor is not None:
+            self.cursor.finalize()
 
         for obj in self.plot.objects:
             obj.remove()
