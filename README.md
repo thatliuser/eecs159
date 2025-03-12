@@ -24,4 +24,4 @@ If you want to see the 2D projection (currently not animated), you need to speci
 run `python -m realsense -cf <calibration_file> -f <sample> replay`. For example, you can run
 `python -m realsense -cf samples/calibrate.csv -f samples/eric.csv replay`, which shows the following output:
 
-[](./samples/eric-out.png)
+![Output of the sample `eric.csv`.](./samples/eric-out.png)
