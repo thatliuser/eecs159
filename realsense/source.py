@@ -1,7 +1,7 @@
 # Data source
 from abc import abstractmethod, ABC
 from typing import TYPE_CHECKING, Optional
-from mpl_toolkits.mplot3d.art3d import Path3DCollection, Poly3DCollection
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 import logging
 import numpy as np
@@ -11,7 +11,7 @@ if sys.platform == "linux":
     import uinput
 if TYPE_CHECKING:
     from .plot import Plotter, ProjPlotter
-from .types import Position
+from .state import Position
 
 log = logging.getLogger(__name__)
 

@@ -45,7 +45,9 @@
               # pandas
               # filterpy
               python-uinput
-              snakeviz
+              # For profiling
+              # snakeviz
+              pynput
               # self.outputs.packages."${system}".ahrs
             ]))
             # arduino-cli

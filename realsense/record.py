@@ -9,7 +9,7 @@ from typing import Optional
 from .replay import RecordingRow, csvkeys
 from .source import DataSource, Projection
 from .plot import Plotter
-from .types import Position
+from .state import Position
 
 log = logging.getLogger(__name__)
 

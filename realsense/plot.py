@@ -1,4 +1,4 @@
-from .types import Position
+from .state import Position
 from .source import DataSource, Projection
 
 from matplotlib.figure import Figure
@@ -160,6 +160,7 @@ class Plotter:
         try:
             matplotlib.use("qtagg", force=True)
         except ImportError:
+            # TODO: matplotlib doesn't use GPU accel, so this is probably inevitable regardless of backend
             log.warning(
                 "Couldn't switch rendering backend to Qt5, CPU usage may be high!"
             )

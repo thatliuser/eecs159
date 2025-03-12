@@ -5,7 +5,7 @@ from collections import deque
 from typing import Optional
 
 from .source import DataSource, Projection
-from .types import RecordingRow, csvkeys, Position
+from .state import RecordingRow, csvkeys, Position
 from .plot import Plotter
 
 
