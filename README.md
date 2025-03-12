@@ -21,4 +21,7 @@ run `python -m realsense record` in the root directory.
 
 If you're just running a sample, run `python -m realsense -f <sample> replay` to replay the sample.
 If you want to see the 2D projection (currently not animated), you need to specify a calibration file:
-run `python -m realsense -cf <calibration_file> -f <sample> replay`.
+run `python -m realsense -cf <calibration_file> -f <sample> replay`. For example, you can run
+`python -m realsense -cf samples/calibrate.csv -f samples/eric.csv replay`, which shows the following output:
+
+[](./samples/eric-out.png)
